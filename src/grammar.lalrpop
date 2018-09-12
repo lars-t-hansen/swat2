@@ -1,0 +1,54 @@
+// -*- mode: rust -*-
+
+// See MANUAL.txt for a concise summary of the grammar.
+
+use ast::*;
+use std::str::FromStr;
+
+grammar;
+
+pub Program: Program = {
+    <items:TopItem*> => Program { items }
+}
+
+TopItem: TopItem = {
+    "module" <name:Id> "{" <items:ModItem*> "}" => TopItem::Mod(Module { name, items }),
+    "%%js" <text:Str> => TopItem::Js(text)
+}
+
+ModItem: ModItem = {
+    <v:Visibility?> <mutable:VarOrConst> <name:Id> ":" <ty:Type> "=" <init:Expr> ";" => {
+        let (exported, imported) =
+            if let Some((exported, imported)) = v { (exported, imported) } else { (false, false) };
+        ModItem::Var{mutable, exported, imported, name, ty, init}
+    }
+}
+
+Visibility: (bool, bool) = {
+    "export" => (true, false),
+    "import" => (false, true)
+}
+
+VarOrConst: bool = {
+    "var" => true,
+    "const" => false
+}
+
+Type: Type = {
+    "i32" => Type::I32,
+    "i64" => Type::I64,
+    "f32" => Type::F32,
+    "f64" => Type::F64
+}
+
+Expr: Box<Expr> = {
+    <n:NumLit> => Box::new(Expr::NumLit(n))
+}
+
+Id: Id = {
+    <n:Name> => Id{name:n}
+}
+
+Name: String = <s:r"[a-zA-Z_][a-zA-Z_0-9$]*"> => String::from_str(s).unwrap();
+NumLit: String = <s:r"[0-9]+|[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?"> => String::from_str(s).unwrap();
+Str: String = <s:r"'[^']*'"> => String::from_str(s).unwrap();
