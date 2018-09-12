@@ -23,9 +23,27 @@ pub enum ModItem {
         name:Id,
         ty:Type,
         init:Box<Expr>},
-    Func,
+    Fn{imported: bool,
+       exported: bool,
+       name:     Id,
+       formals:  Vec<(Id,Type)>,
+       retn:     Option<Type>,
+       body:     Box<Block>
+    },
     Class,
     Virtual
+}
+
+#[derive(Debug)]
+pub struct Block {
+    pub items: Vec<BlockItem>
+}
+
+#[derive(Debug)]
+pub enum BlockItem {
+    Let{ name: Id, ty: Type, init: Box<Expr> },
+    Expr(Box<Expr>),
+    Semi
 }
 
 #[derive(Clone, Debug)]
@@ -41,7 +59,18 @@ pub enum Type {
     F64
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum Binop {
+    Add,
+    Sub,
+    Less
+}
+
 #[derive(Debug)]
 pub enum Expr {
+    If{test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>},
+    Binop{op:Binop, lhs:Box<Expr>, rhs:Box<Expr>},
+    Call{name:Id, actuals:Vec<Box<Expr>>},
+    Id(Id),
     NumLit(String)
 }

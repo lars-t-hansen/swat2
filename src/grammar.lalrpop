@@ -13,18 +13,66 @@ pub Program: Program = {
 
 TopItem: TopItem = {
     "module" <name:Id> "{" <items:ModItem*> "}" => TopItem::Mod(Module { name, items }),
-    "%%js" <text:Str> => TopItem::Js(text)
+    <text:JSItem> => TopItem::Js(text)
 }
 
 ModItem: ModItem = {
-    <v:Visibility?> <mutable:VarOrConst> <name:Id> ":" <ty:Type> "=" <init:Expr> ";" => {
-        let (exported, imported) =
-            if let Some((exported, imported)) = v { (exported, imported) } else { (false, false) };
+    <v:Visibility> <mutable:VarOrConst> <name:Id> ":" <ty:Type> "=" <init:Expr> ";" => {
+        let (exported, imported) = v;
         ModItem::Var{mutable, exported, imported, name, ty, init}
+    },
+
+    <v:Visibility> "fn" <name:Id> <formals:Formals> <retn:Return?> <body:Block> => {
+        let (exported, imported) = v;
+        ModItem::Fn{exported, imported, name, formals, retn, body}
     }
 }
 
+Formals: Vec<(Id, Type)> = {
+    "(" <fs:(<Formal> ",")*> <f:Formal?> ")" =>
+        match f {
+            None => fs,
+            Some(x) => { let mut v = fs; v.push(x); v }
+        }
+}
+        
+Formal: (Id, Type) = {
+    <name:Id> ":" <t:Type> => (name, t)
+}
+
+Return: Type = {
+    "->" <t:Type> => t
+}
+
+// Here we desire that all but the last item must be semi-terminated
+// unless they are exempt (basically block, while, if, etc - anything
+// that has a body), and the last item may be semi-terminated (also
+// unless exempt, and unless it must be semi-terminatd always), and we
+// wish every expression type to be allowed in any position (ie "let"
+// may be the last expression, but then it must be terminated)
+//
+// maybe (Expr (";" Expr)* ";"?)? is better?
+//  - can be empty [semantics == void]
+//  - can have one expr with or without semi
+
+Block: Box<Block> = {
+    "{" <items:(<BlockItem> ";")*> <last:BlockItem> "}" => Box::new(Block { items })
+}
+
+BlockItem: BlockItem = {
+    "let" <name:Id> ":" <ty:Type> "=" <init:Expr> ";" => BlockItem::Let{name, ty, init},
+    <e:Expr> => BlockItem::Expr(e)
+}
+
 Visibility: (bool, bool) = {
+    <v:Visibility2?> => {
+        let (exported, imported) =
+            if let Some((exported, imported)) = v { (exported, imported) } else { (false, false) };
+        (exported, imported)
+    }
+}
+        
+Visibility2: (bool, bool) = {
     "export" => (true, false),
     "import" => (false, true)
 }
@@ -42,13 +90,45 @@ Type: Type = {
 }
 
 Expr: Box<Expr> = {
+    Expr0
+}
+
+Expr0: Box<Expr> = {
+    <lhs:Expr0> "<" <rhs:Expr1> => Box::new(Expr::Binop{op:Binop::Less,lhs,rhs}),
+    Expr1
+}
+
+Expr1: Box<Expr> = {
+    <lhs:Expr1> "+" <rhs:Expr2> => Box::new(Expr::Binop{op:Binop::Add,lhs,rhs}),
+    <lhs:Expr1> "-" <rhs:Expr2> => Box::new(Expr::Binop{op:Binop::Sub,lhs,rhs}),
+    Expr2
+}
+
+Expr2: Box<Expr> = {
+    "if" <test:Expr> <consequent:Block> "else" <alternate:Block> => Box::new(Expr::If{test,consequent,alternate}),
+    "(" <e:Expr> ")" => e,
+    <name:Id> <actuals:Actuals?> => {
+        if let Some(actuals) = actuals {
+            Box::new(Expr::Call{name, actuals})
+        } else {
+            Box::new(Expr::Id(name))
+        }
+    },
     <n:NumLit> => Box::new(Expr::NumLit(n))
 }
 
+Actuals: Vec<Box<Expr>> = {
+    "(" <es:(<Expr> ",")*> <e:Expr?> ")" =>
+        match e {
+            None => es,
+            Some(x) => { let mut v = es; v.push(x); v }
+        }
+}
+    
 Id: Id = {
     <n:Name> => Id{name:n}
 }
 
 Name: String = <s:r"[a-zA-Z_][a-zA-Z_0-9$]*"> => String::from_str(s).unwrap();
-NumLit: String = <s:r"[0-9]+|[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?"> => String::from_str(s).unwrap();
-Str: String = <s:r"'[^']*'"> => String::from_str(s).unwrap();
+NumLit: String = <s:r"[0-9]+[iIlLfFdD]?|[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?[fFdD]?"> => String::from_str(s).unwrap();
+JSItem: String = <s:r"js<!<.*>!>"> => String::from_str(s).unwrap();
