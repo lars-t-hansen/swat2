@@ -19,12 +19,12 @@ TopItem: TopItem = {
 ModItem: ModItem = {
     <v:Visibility> <mutable:VarOrConst> <name:Id> ":" <ty:Type> "=" <init:Expr> ";" => {
         let (exported, imported) = v;
-        ModItem::Var{mutable, exported, imported, name, ty, init}
+        ModItem::Var(Box::new(GlobalVar {mutable, exported, imported, name, ty, init}))
     },
 
     <v:Visibility> "fn" <name:Id> <formals:Formals> <retn:Return?> <body:Block> => {
         let (exported, imported) = v;
-        ModItem::Fn{exported, imported, name, formals, retn, body}
+        ModItem::Fn(Box::new(FnDef {exported, imported, name, formals, retn, body}))
     }
 }
 
@@ -44,37 +44,26 @@ Return: Type = {
     "->" <t:Type> => t
 }
 
-// Here we desire that all but the last item must be semi-terminated
-// unless they are exempt (basically block, while, if, etc - anything
-// that has a body), and the last item may be semi-terminated (also
-// unless exempt, and unless it must be semi-terminatd always), and we
-// wish every expression type to be allowed in any position (ie "let"
-// may be the last expression, but then it must be terminated)
-//
-// maybe (Expr (";" Expr)* ";"?)? is better?
-//  - can be empty [semantics == void]
-//  - can have one expr with or without semi
-
 Block: Box<Block> = {
-    "{" <items:(<BlockItem> ";")*> <last:BlockItem> "}" => Box::new(Block { items })
+    "{" <first:BlockItem> <middle:(";" <BlockItem>)*> ";"? "}" => {
+        let mut items = middle;
+        items.insert(0, first);
+        Box::new(Block { items })
+    }
 }
 
 BlockItem: BlockItem = {
-    "let" <name:Id> ":" <ty:Type> "=" <init:Expr> ";" => BlockItem::Let{name, ty, init},
+    "let" <name:Id> ":" <ty:Type> "=" <init:Expr> => BlockItem::Let(Box::new(LetDefn {name, ty, init})),
     <e:Expr> => BlockItem::Expr(e)
 }
 
 Visibility: (bool, bool) = {
-    <v:Visibility2?> => {
-        let (exported, imported) =
-            if let Some((exported, imported)) = v { (exported, imported) } else { (false, false) };
-        (exported, imported)
-    }
+    <v:Visibility2?> => if let Some(e) = v { e } else { (false, false) }
 }
         
 Visibility2: (bool, bool) = {
-    "export" => (true, false),
-    "import" => (false, true)
+    "pub" => (true, false),
+    "extern" => (false, true)
 }
 
 VarOrConst: bool = {
@@ -86,7 +75,8 @@ Type: Type = {
     "i32" => Type::I32,
     "i64" => Type::I64,
     "f32" => Type::F32,
-    "f64" => Type::F64
+    "f64" => Type::F64,
+    "anyref" => Type::AnyRef
 }
 
 Expr: Box<Expr> = {
@@ -94,18 +84,18 @@ Expr: Box<Expr> = {
 }
 
 Expr0: Box<Expr> = {
-    <lhs:Expr0> "<" <rhs:Expr1> => Box::new(Expr::Binop{op:Binop::Less,lhs,rhs}),
+    <lhs:Expr0> <op:Relop> <rhs:Expr1> => Box::new(Expr::Binop{op,lhs,rhs}),
     Expr1
 }
 
 Expr1: Box<Expr> = {
-    <lhs:Expr1> "+" <rhs:Expr2> => Box::new(Expr::Binop{op:Binop::Add,lhs,rhs}),
-    <lhs:Expr1> "-" <rhs:Expr2> => Box::new(Expr::Binop{op:Binop::Sub,lhs,rhs}),
+    <lhs:Expr1> <op:Addop> <rhs:Expr2> => Box::new(Expr::Binop{op,lhs,rhs}),
     Expr2
 }
 
 Expr2: Box<Expr> = {
     "if" <test:Expr> <consequent:Block> "else" <alternate:Block> => Box::new(Expr::If{test,consequent,alternate}),
+    "while" <test:Expr> <body:Block> => Box::new(Expr::While{test,body}),
     "(" <e:Expr> ")" => e,
     <name:Id> <actuals:Actuals?> => {
         if let Some(actuals) = actuals {
@@ -114,7 +104,52 @@ Expr2: Box<Expr> = {
             Box::new(Expr::Id(name))
         }
     },
-    <n:NumLit> => Box::new(Expr::NumLit(n))
+    <n:IntLit> => {
+        let bs = n.as_bytes();
+        match char::from(bs[bs.len()-1]) {
+            'i' | 'I' => {
+                match i32::from_str_radix(&n[..n.len()-1], 10) {
+                    Ok(v) => Box::new(Expr::NumLit(Number::I32(v))),
+                    Err(_) => panic!("Not a valid i32 literal {}", n)
+                }
+            }
+            'l' | 'L' => {
+                match i64::from_str_radix(&n[..n.len()-1], 10) {
+                    Ok(v) => Box::new(Expr::NumLit(Number::I64(v))),
+                    Err(_) => panic!("Not a valid i64 literal {}", n)
+                }
+            }
+            _ => {
+                match i32::from_str_radix(&n, 10) {
+                    Ok(v) => Box::new(Expr::NumLit(Number::I32(v))),
+                    Err(_) => panic!("Not a valid int literal {}", n)
+                }
+            }
+        }
+    },
+    <n:FloatLit> => {
+        let bs = n.as_bytes();
+        match char::from(bs[bs.len()-1]) {
+            'f' | 'F' => {
+                match f32::from_str(&n[..n.len()-1]) {
+                    Ok(v) => Box::new(Expr::NumLit(Number::F32(v))),
+                    Err(_) => panic!("Not a valid f32 literal {}", n)
+                }
+            }
+            'd' | 'D' => {
+                match f64::from_str(&n[..n.len()-1]) {
+                    Ok(v) => Box::new(Expr::NumLit(Number::F64(v))),
+                    Err(_) => panic!("Not a valid f64 literal {}", n)
+                }
+            }
+            _ => {
+                match f64::from_str(&n) {
+                    Ok(v) => Box::new(Expr::NumLit(Number::F64(v))),
+                    Err(_) => panic!("Not a valid f64 literal {}", n)
+                }
+            }
+        }
+    }
 }
 
 Actuals: Vec<Box<Expr>> = {
@@ -125,10 +160,37 @@ Actuals: Vec<Box<Expr>> = {
         }
 }
     
+Relop: Binop = {
+    "<"   => Binop::Less,
+    "<="  => Binop::LessOrEqual,
+    ">"   => Binop::Greater,
+    ">="  => Binop::GreaterOrEqual,
+    "<u"  => Binop::ULess,
+    "<=u" => Binop::ULessOrEqual,
+    ">u"  => Binop::UGreater,
+    ">=u" => Binop::UGreaterOrEqual,
+    "=="  => Binop::Equal,
+    "!="  => Binop::NotEqual
+}
+
+Addop: Binop = {
+    "+" => Binop::Add,
+    "-" => Binop::Sub
+}
+
+Mulop: Binop = {
+    "*" => Binop::Mul,
+    "/" => Binop::Div,
+    "%" => Binop::Rem,
+    "/u" => Binop::UDiv,
+    "%u" => Binop::URem
+}
+
 Id: Id = {
     <n:Name> => Id{name:n}
 }
 
 Name: String = <s:r"[a-zA-Z_][a-zA-Z_0-9$]*"> => String::from_str(s).unwrap();
-NumLit: String = <s:r"[0-9]+[iIlLfFdD]?|[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?[fFdD]?"> => String::from_str(s).unwrap();
+IntLit: String = <s:r"[0-9]+[iIlL]?"> => String::from_str(s).unwrap();
+FloatLit: String = <s:r"[0-9]+[fFdD]|[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?[fFdD]?"> => String::from_str(s).unwrap();
 JSItem: String = <s:r"js<!<.*>!>"> => String::from_str(s).unwrap();
