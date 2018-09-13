@@ -3,8 +3,10 @@
 lalrpop_mod!(pub grammar);
 
 mod ast;
+mod xform;
 mod wast;
 
+use xform::Xform;
 use wast::{Emitter, Wast};
 
 const TEST: &str = "
@@ -16,9 +18,13 @@ module FibMod {
 }";
 
 fn main() {
-    let m = grammar::ProgramParser::new()
+    let prog0 = grammar::ProgramParser::new()
         .parse(TEST)
         .unwrap();
+
+    let mut xform = Xform::new();
+    let prog1 = xform.xform_program(prog0);
+
     let mut e = Emitter::new();
-    m.gen(&mut e);
+    prog1.gen(&mut e);
 }

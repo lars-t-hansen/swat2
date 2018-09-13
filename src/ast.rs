@@ -38,12 +38,21 @@ pub struct FnDef {
     pub name:     Id,
     pub formals:  Vec<(Id,Type)>,
     pub retn:     Option<Type>,
+    pub locals:   Vec<LocalItem>,
     pub body:     Box<Block>
 }
 
 #[derive(Debug)]
+pub struct LocalItem {
+    pub name: String,               // What the source program calls it
+    pub aka:  String,               // What we call it in Local and Global nodes
+    pub ty:   Type                  // Its type
+}
+
+#[derive(Debug)]
 pub struct Block {
-    pub items: Vec<BlockItem>
+    pub items: Vec<BlockItem>,
+    pub ty:    Option<Type>
 }
 
 #[derive(Debug)]
@@ -70,7 +79,7 @@ impl Id {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Type {
     I32,
     I64,
@@ -129,16 +138,22 @@ pub enum Unop {
 }
 
 #[derive(Debug)]
-pub enum Expr {
+pub struct Expr {
+    pub ty: Option<Type>,
+    pub u:  Uxpr
+}
+
+#[derive(Debug)]
+pub enum Uxpr {
+    Void,
+    NumLit(Number),
+    Id(Id),
     If{test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>},
     While{test:Box<Expr>, body:Box<Block>},
     Binop{op:Binop, lhs:Box<Expr>, rhs:Box<Expr>},
     Unop{op:Unop, e:Box<Expr>},
     Assign{lhs:LValue, rhs:Box<Expr>},
     Call{name:Id, actuals:Vec<Box<Expr>>},
-    Id(Id),
-    NumLit(Number),
-    Void
 }
 
 #[derive(Debug)]

@@ -114,30 +114,30 @@ impl Wast for BlockItem {
 
 impl Wast for Expr {
     fn gen(&self, em:&mut Emitter) {
-        match self {
-            Expr::If{test, consequent, alternate} => {
+        match &self.u {
+            Uxpr::If{test, consequent, alternate} => {
                 // here we need to emit the common type for the two arms
             }
-            Expr::While{test, body} => {
+            Uxpr::While{test, body} => {
                 // labels for break and continue
             }
-            Expr::Binop{op, lhs, rhs} => {
+            Uxpr::Binop{op, lhs, rhs} => {
                 // here we need to know the operand/result type (always the same?)
             }
-            Expr::Unop{op, e} => {
+            Uxpr::Unop{op, e} => {
                 // here we need to know the operand and result types (may be different)
             }
-            Expr::Call{name, actuals} => {
+            Uxpr::Call{name, actuals} => {
                 // we assume special functions have been resolved before this
             }
-            Expr::Id(id) => {
+            Uxpr::Id(id) => {
                 // This must carry info about whether local or global
             }
-            Expr::NumLit(id) => {
+            Uxpr::NumLit(id) => {
             }
-            Expr::Assign{lhs, rhs} => {
+            Uxpr::Assign{lhs, rhs} => {
             }
-            Expr::Void => {
+            Uxpr::Void => {
             }
         }
     }

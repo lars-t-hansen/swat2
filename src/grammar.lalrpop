@@ -18,7 +18,7 @@ TopItem: TopItem = {
 
 ModItem: ModItem = {
     "extern" <mutable:VarOrConst> <name:Id> ":" <ty:Type> ";" => {
-        let init = Box::new(Expr::Void);
+        let init = Box::new(Expr{ty:None, u:Uxpr::Void});
         ModItem::Var(Box::new(GlobalVar {mutable, exported:false, imported:true, name, ty, init}))
     },
 
@@ -28,13 +28,13 @@ ModItem: ModItem = {
     },
 
     "extern" "fn" <name:Id> <formals:Formals> <retn:Return?> ";" => {
-        let body = Box::new(Block { items: vec![] });
-        ModItem::Fn(Box::new(FnDef {exported:false, imported:true, name, formals, retn, body}))
+        let body = Box::new(Block { ty: None, items: vec![] });
+        ModItem::Fn(Box::new(FnDef {exported:false, imported:true, name, formals, retn, locals: vec![], body}))
     },
 
     <v:"pub"?> "fn" <name:Id> <formals:Formals> <retn:Return?> <body:Block> => {
         let exported = if let Some(_) = v { true } else { false };
-        ModItem::Fn(Box::new(FnDef {exported, imported:false, name, formals, retn, body}))
+        ModItem::Fn(Box::new(FnDef {exported, imported:false, name, formals, retn, locals: vec![], body}))
     }
 }
 
@@ -68,15 +68,19 @@ Type: Type = {
 }
 
 Id: Id = {
+    // Here we want to use the string_cache atoms instead, and we want to use those
+    // everywhere, no more strings!
     <n:Name> => Id{name:n}
 }
 
 Block: Box<Block> = {
     "{" <first:BlockItem> <middle:(";" <BlockItem>)*> <semi:";"?> "}" => {
-        // TODO: record semi
         let mut items = middle;
         items.insert(0, first);
-        Box::new(Block { items })
+        if let Some(_) = semi {
+            items.push(BlockItem::Expr(Box::new(Expr{ty:None, u:Uxpr::Void})));
+        }
+        Box::new(Block { ty: None, items })
     }
 }
 
@@ -90,24 +94,24 @@ Expr: Box<Expr> = {
 }
 
 Expr0: Box<Expr> = {
-    <lhs:Expr0> <op:Relop> <rhs:Expr1> => Box::new(Expr::Binop{op,lhs,rhs}),
+    <lhs:Expr0> <op:Relop> <rhs:Expr1> => Box::new(Expr{ty:None, u:Uxpr::Binop{op,lhs,rhs}}),
     Expr1
 }
 
 Expr1: Box<Expr> = {
-    <lhs:Expr1> <op:Addop> <rhs:Expr2> => Box::new(Expr::Binop{op,lhs,rhs}),
+    <lhs:Expr1> <op:Addop> <rhs:Expr2> => Box::new(Expr{ty:None, u:Uxpr::Binop{op,lhs,rhs}}),
     Expr2
 }
 
 Expr2: Box<Expr> = {
-    "if" <test:Expr> <consequent:Block> "else" <alternate:Block> => Box::new(Expr::If{test,consequent,alternate}),
-    "while" <test:Expr> <body:Block> => Box::new(Expr::While{test,body}),
+    "if" <test:Expr> <consequent:Block> "else" <alternate:Block> => Box::new(Expr{ty: None, u:Uxpr::If{test,consequent,alternate}}),
+    "while" <test:Expr> <body:Block> => Box::new(Expr{ty: None, u:Uxpr::While{test,body}}),
     "(" <e:Expr> ")" => e,
     <name:Id> <actuals:Actuals?> => {
         if let Some(actuals) = actuals {
-            Box::new(Expr::Call{name, actuals})
+            Box::new(Expr{ty: None, u:Uxpr::Call{name, actuals}})
         } else {
-            Box::new(Expr::Id(name))
+            Box::new(Expr{ty: None, u:Uxpr::Id(name)})
         }
     },
     <n:IntLit> => {
@@ -115,19 +119,19 @@ Expr2: Box<Expr> = {
         match char::from(bs[bs.len()-1]) {
             'i' | 'I' => {
                 match i32::from_str_radix(&n[..n.len()-1], 10) {
-                    Ok(v) => Box::new(Expr::NumLit(Number::I32(v))),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::I32), u:Uxpr::NumLit(Number::I32(v))}),
                     Err(_) => panic!("Not a valid i32 literal {}", n)
                 }
             }
             'l' | 'L' => {
                 match i64::from_str_radix(&n[..n.len()-1], 10) {
-                    Ok(v) => Box::new(Expr::NumLit(Number::I64(v))),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::I64), u:Uxpr::NumLit(Number::I64(v))}),
                     Err(_) => panic!("Not a valid i64 literal {}", n)
                 }
             }
             _ => {
                 match i32::from_str_radix(&n, 10) {
-                    Ok(v) => Box::new(Expr::NumLit(Number::I32(v))),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::I32), u:Uxpr::NumLit(Number::I32(v))}),
                     Err(_) => panic!("Not a valid int literal {}", n)
                 }
             }
@@ -138,19 +142,19 @@ Expr2: Box<Expr> = {
         match char::from(bs[bs.len()-1]) {
             'f' | 'F' => {
                 match f32::from_str(&n[..n.len()-1]) {
-                    Ok(v) => Box::new(Expr::NumLit(Number::F32(v))),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::F32), u:Uxpr::NumLit(Number::F32(v))}),
                     Err(_) => panic!("Not a valid f32 literal {}", n)
                 }
             }
             'd' | 'D' => {
                 match f64::from_str(&n[..n.len()-1]) {
-                    Ok(v) => Box::new(Expr::NumLit(Number::F64(v))),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::F64), u:Uxpr::NumLit(Number::F64(v))}),
                     Err(_) => panic!("Not a valid f64 literal {}", n)
                 }
             }
             _ => {
                 match f64::from_str(&n) {
-                    Ok(v) => Box::new(Expr::NumLit(Number::F64(v))),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::F64), u:Uxpr::NumLit(Number::F64(v))}),
                     Err(_) => panic!("Not a valid f64 literal {}", n)
                 }
             }
@@ -197,5 +201,5 @@ Mulop: Binop = {
 
 Name: String = <s:r"[a-zA-Z_][a-zA-Z_0-9$]*"> => String::from_str(s).unwrap();
 IntLit: String = <s:r"[0-9]+[iIlL]?"> => String::from_str(s).unwrap();
-FloatLit: String = <s:r"[0-9]+[fFdD]|[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?[fFdD]?"> => String::from_str(s).unwrap();
+FloatLit: String = <s:r"[0-9]+[fFdD]|[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?[fFdD]?"> => String::from_str(s).unwrap();
 JSItem: String = <s:r"js<!<.*>!>"> => String::from_str(s).unwrap();
