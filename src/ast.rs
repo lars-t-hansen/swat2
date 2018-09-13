@@ -147,7 +147,9 @@ pub struct Expr {
 pub enum Uxpr {
     Void,
     NumLit(Number),
-    Id(Id),
+    Id(Id),                     // Used before xform
+    Local(Id),                  // Used after xform
+    Global(Id),                 // Used after xform
     If{test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>},
     While{test:Box<Expr>, body:Box<Block>},
     Binop{op:Binop, lhs:Box<Expr>, rhs:Box<Expr>},

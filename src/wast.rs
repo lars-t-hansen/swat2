@@ -2,6 +2,9 @@
 
 use ast::*;
 
+// This trait is probably less interesting than just using functions
+// as we do in xform.
+
 pub trait Wast {
     fn gen(&self, em:&mut Emitter);
 }
@@ -60,7 +63,15 @@ impl Wast for ModItem {
 
 impl Wast for GlobalVar {
     fn gen(&self, em:&mut Emitter) {
-        // FIXME
+        let ty = render_type(Some(self.ty));
+        let ty = if self.mutable { format!("(mut {})", ty) } else { ty };
+        if self.imported {
+            em.wast(&format!("(import \"\" \"{}\" (global {}))", self.name.name, ty));
+        } else {
+            em.wast(&format!("(global ${} {} ", self.name.name, ty));
+            self.init.gen(em);
+            em.wast(")\n");
+        }
     }
 }
 
@@ -68,11 +79,11 @@ impl Wast for FnDef {
     fn gen(&self, em:&mut Emitter) {
         let mut params = "".to_string();
         for (name, ty) in &self.formals {
-            params.push_str(&format!("(param ${} {}) ", name.name, render_type(*ty)));
+            params.push_str(&format!("(param ${} {}) ", name.name, render_type(Some(*ty))));
         }
         let result =
             if let Some(ty) = self.retn {
-                format!("(result {})", render_type(ty))
+                format!("(result {})", render_type(Some(ty)))
             } else {
                 "".to_string()
             };
@@ -97,8 +108,22 @@ impl Wast for FnDef {
 
 impl Wast for Block {
     fn gen(&self, em:&mut Emitter) {
-        for item in &self.items {
-            item.gen(em);
+        if self.items.len() == 1 {
+            self.items[0].gen(em);
+        } else {
+            em.wast(&format!("(block {} ", render_type(self.ty)));
+            let limit = self.items.len();
+            for idx in 0..limit {
+                let item = &self.items[idx];
+                if idx < limit-1 {
+                    if let BlockItem::Expr(e) = item {
+                        if let Some(_) = e.ty {
+                            em.wast("drop ");
+                        }
+                    }
+                }
+            }
+            em.wast(")");
         }
     }
 }
@@ -116,40 +141,81 @@ impl Wast for Expr {
     fn gen(&self, em:&mut Emitter) {
         match &self.u {
             Uxpr::If{test, consequent, alternate} => {
-                // here we need to emit the common type for the two arms
+                em.wast(&format!("(if {} ", render_type(self.ty)));
+                test.gen(em);
+                em.wast(" ");
+                consequent.gen(em);
+                em.wast(" ");
+                alternate.gen(em);
+                em.wast(")");
             }
             Uxpr::While{test, body} => {
-                // labels for break and continue
+                // TODO
+                panic!("NYI");
             }
             Uxpr::Binop{op, lhs, rhs} => {
-                // here we need to know the operand/result type (always the same?)
+                em.wast(&format!("({}.{} ", render_type(self.ty), render_binop(*op)));
+                lhs.gen(em);
+                em.wast(" ");
+                rhs.gen(em);
+                em.wast(")");
             }
             Uxpr::Unop{op, e} => {
-                // here we need to know the operand and result types (may be different)
+                // TODO
+                panic!("NYI");
             }
             Uxpr::Call{name, actuals} => {
-                // we assume special functions have been resolved before this
+                em.wast(&format!("(call ${} ", name.name));
+                for arg in actuals {
+                    arg.gen(em);
+                    em.wast(" ");
+                }
+                em.wast(")");
             }
-            Uxpr::Id(id) => {
-                // This must carry info about whether local or global
+            Uxpr::Local(id) => {
+                em.wast(&format!("(get_local ${})", id.name));
             }
-            Uxpr::NumLit(id) => {
+            Uxpr::Global(id) => {
+                em.wast(&format!("(get_global ${})", id.name));
+            }
+            Uxpr::NumLit(n) => {
+                match n {
+                    Number::I32(k) => { em.wast(&format!("(i32.const {})", k)) }
+                    Number::I64(k) => { em.wast(&format!("(i64.const {})", k)) }
+                    Number::F32(k) => { em.wast(&format!("(f32.const {})", k)) }
+                    Number::F64(k) => { em.wast(&format!("(f64.const {})", k)) }
+                }
             }
             Uxpr::Assign{lhs, rhs} => {
+                // TODO
+                panic!("NYI");
             }
             Uxpr::Void => {
+            }
+            Uxpr::Id(_) => {
+                panic!("Id should have been removed before now");
             }
         }
     }
 }
 
-fn render_type(ty:Type) -> String {
+fn render_type(ty:Option<Type>) -> String {
     match ty {
-        Type::I32 => "i32".to_string(),
-        Type::I64 => "i64".to_string(),
-        Type::F32 => "f32".to_string(),
-        Type::F64 => "f64".to_string(),
-        Type::AnyRef => "anyref".to_string()
+        Some(Type::I32) => "i32".to_string(),
+        Some(Type::I64) => "i64".to_string(),
+        Some(Type::F32) => "f32".to_string(),
+        Some(Type::F64) => "f64".to_string(),
+        Some(Type::AnyRef) => "anyref".to_string(),
+        None => "".to_string()
     }
 }
 
+fn render_binop(op:Binop) -> String {
+    match op {
+        // TODO: more
+        Binop::Add => "add".to_string(),
+        Binop::Sub => "sub".to_string(),
+        Binop::Less => "lt_s".to_string(),
+        _ => "???".to_string()
+    }
+}

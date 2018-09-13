@@ -1,6 +1,8 @@
 // -*- mode: rust; fill-column: 80 -*-
 
-// See MANUAL.txt for a concise summary of the grammar.
+// TODO: Many more operators, and more precedence levels
+// TODO: loop { ... } thing with break and continue
+// TODO: better lexer
 
 use ast::*;
 use std::str::FromStr;
@@ -90,6 +92,7 @@ BlockItem: BlockItem = {
 }
 
 Expr: Box<Expr> = {
+    <lhs:Id> "=" <rhs:Expr0> => Box::new(Expr{ty:None, u:Uxpr::Assign{lhs:LValue::Id(lhs), rhs}}),
     Expr0
 }
 

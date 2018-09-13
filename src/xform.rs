@@ -2,12 +2,12 @@
 
 // Transforms a Program into a new Program with the following invariants:
 //
-// - no BlockItem::Let nodes
-// - no Expr::Id nodes
-// - variable references appear either as Expr::Local or Expr::Global nodes
-// - function calls to intrinsics are rewritten as unop/binop nodes
+// - no BlockItem::Let nodes, they have been rewritten as locals + assignment
+// - no Expr::Id nodes, they have been rewritten either as Expr::Local or
+//   Expr::Global nodes
+// - calls to intrinsics have been rewritten as unop/binop/convop nodes
 // - type checking has been done in functions and on global initializers
-// - every expr node has a type
+// - every expr and block node has a type
 // - the locals array of a function is populated
 
 use ast::*;
@@ -34,7 +34,7 @@ enum CallTarget {
     Error,
     Intrinsic1(Unop),
     Intrinsic2(Binop),
-    Function
+    Function(Rc<Signature>)
 }
 
 enum Binding {
@@ -82,7 +82,16 @@ impl Xform {
         self.toplevel.contains_key(&name.name)
     }
 
+    fn find_global_binding(&self, name: &Id) -> Option<Binding> {
+        match self.toplevel.get(&name.name) {
+            Some(ToplevelItem::Global(t)) => Some(Binding::GlobalVar(*t)),
+            Some(ToplevelItem::Function(sig)) => Some(Binding::GlobalFun(sig.clone())),
+            None => None
+        }
+    }
+    
     // Local environment.
+    // TODO: reuse locals
 
     fn push_rib(&mut self) {
         self.locals.push(vec![]);
@@ -118,11 +127,13 @@ impl Xform {
         false
     }
 
-    fn find_local_binding(&self, id:&Id) -> Option<Id> {
+    // BUG: must search from the end of each rib to handle shadowing properly.
+
+    fn find_local_binding(&self, id:&Id) -> Option<Binding> {
         for rib in &self.locals {
             for item in rib {
                 if id == &item.name {
-                    return Some(item.aka.clone());
+                    return Some(Binding::Local(item.aka.clone(), item.ty));
                 }
             }
         }
@@ -134,8 +145,11 @@ impl Xform {
     fn find_call_target(&mut self, id:&Id) -> CallTarget {
         if self.is_locally_defined(id) {
             CallTarget::Error
-        } else if self.is_toplevel_defined(id) {
-            CallTarget::Function
+        } else if let Some(b) = self.find_global_binding(id) {
+            match b {
+                Binding::GlobalFun(sig) => CallTarget::Function(sig.clone()),
+                _                       => CallTarget::Error
+            }
         } else if let Some(v) = self.intrinsics1.get(&id.name) {
             CallTarget::Intrinsic1(*v)
         } else if let Some(v) = self.intrinsics2.get(&id.name) {
@@ -145,20 +159,11 @@ impl Xform {
         }
     }
 
-    // A fairly clear rust weakness (unavoidable) is that returning references
-    // into data structures requires RC or some kind of lifetime analysis that
-    // is ... tricky?  We have to prove that the reference into the env will not
-    // outlive the program we're constructing, though of course that's exactly
-    // what it will.  So what's the repr of a type?  Is it copyable or rc'd?
-    // Right now it's copyable, probably need to keep it that way.  But
-    // /signatures/ are not.
-
     fn find_binding(&mut self, id:&Id) -> Option<Binding> {
-        if let Some(aka) = self.find_local_binding(id) {
-            Some(Binding::Local(aka, Type::I32)) // FIXME, in so many ways...
-// FIXME
-//        } else if self.is_toplevel_defined(id) {
-//            Some(Binding::Global)
+        if let Some(b) = self.find_local_binding(id) {
+            Some(b)
+        } else if let Some(b) = self.find_global_binding(id) {
+            Some(b)
         } else {
             None
         }
@@ -279,6 +284,8 @@ impl Xform {
             match item {
                 BlockItem::Let(l) => {
                     let aka = self.add_local(&l.name, l.ty);
+                    // TODO: This rewrite won't work unless Id(aka) is also in the
+                    // environment, and currently it's not...  Can't we just use l.name?  Shadowing should work
                     let new_expr = self.xform_expr(Expr{ty:None, u:Uxpr::Assign{lhs:LValue::Id(aka), rhs:l.init}});
                     last_type = new_expr.ty;
                     new_items.push(BlockItem::Expr(Box::new(new_expr)));
@@ -363,16 +370,29 @@ impl Xform {
                 Expr{ty: e.ty, u:Uxpr::Unop{op, e:Box::new(e)}}
             }
             Uxpr::Call{name, actuals} => {
-                // Here we rewrite calls to intrinsics that are not shadowed by locals or globals
-                // as unop/binop/convop
                 match self.find_call_target(&name) {
-                    CallTarget::Function => {
-                        panic!("Not implemented");
+                    CallTarget::Function(sig) => {
+                        let (formals, ret) = &*sig;
+                        if actuals.len() != formals.len() {
+                            panic!("Mismatch in number of arguments");
+                        }
+                        let mut new_actuals = vec![];
+                        for e in actuals {
+                            new_actuals.push(Box::new(self.xform_expr(*e)));
+                        }
+                        for i in 0..new_actuals.len() {
+                            if !same_type(Some(formals[i]), new_actuals[i].ty) {
+                                panic!("Mismatch in argument type");
+                            }
+                        }
+                        Expr{ty: *ret, u:Uxpr::Call{name, actuals:new_actuals}}
                     }
                     CallTarget::Intrinsic1(v) => {
+                        // TODO: implement
                         panic!("Not implemented");
                     }
                     CallTarget::Intrinsic2(v) => {
+                        // TODO: implement
                         panic!("Not implemented");
                     }
                     CallTarget::Error => {
@@ -381,23 +401,31 @@ impl Xform {
                 }
             }
             Uxpr::Id(id) => {
-                /*
                 match self.find_binding(&id) {
-                    // what's the type??
-                    Some(Binding::Local(aka)) => {
-                        //Expr{ty: ..., u:Uxpr::Local(aka)}
+                    Some(Binding::Local(aka, t)) => {
+                        Expr{ty: Some(t), u:Uxpr::Local(aka)}
                     }
-                    Some(Binding::Global) => {
-                        Expr{ty: ..., u:Uxpr::Global(id)}
+                    Some(Binding::GlobalVar(t)) => {
+                        Expr{ty: Some(t), u:Uxpr::Global(id)}
+                    }
+                    Some(Binding::GlobalFun(_)) => {
+                        panic!("No first-class functions");
                     }
                     None => {
                         panic!("Reference to unknown variable {}", id.name)
                     }
                 }
-                 */
-                panic!("Not yet");
             }
-            _ => panic!("Not yet") // Assign, Id
+            Uxpr::Assign{lhs, rhs} => {
+                // TODO
+                panic!("'assign' NYI")
+            }
+            Uxpr::Local(_) => {
+                panic!("'local' node should not appear here");
+            }
+            Uxpr::Global(_) => {
+                panic!("'global' node should not appear here");
+            }
         }
     }
 }
