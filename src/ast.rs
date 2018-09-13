@@ -44,9 +44,9 @@ pub struct FnDef {
 
 #[derive(Debug)]
 pub struct LocalItem {
-    pub name: String,               // What the source program calls it
-    pub aka:  String,               // What we call it in Local and Global nodes
-    pub ty:   Type                  // Its type
+    pub name: Id,               // What the source program calls it
+    pub aka:  Id,               // What we call it in Local and Global nodes
+    pub ty:   Type              // Its type
 }
 
 #[derive(Debug)]
@@ -68,7 +68,7 @@ pub struct LetDefn {
     pub init: Box<Expr>
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Id {
     pub name: String
 }

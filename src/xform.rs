@@ -40,7 +40,7 @@ enum CallTarget {
 enum Binding {
     GlobalVar(Type),
     GlobalFun(Rc<Signature>),
-    Local(String, Type)
+    Local(Id, Type)
 }
 
 impl Xform {
@@ -94,7 +94,7 @@ impl Xform {
 
     fn add_param(&mut self, param_name: &Id, param_type: Type) {
         let last = self.locals.len()-1;
-        self.locals[last].push(LocalItem { name: param_name.name.clone(), aka: param_name.name.clone(), ty: param_type });
+        self.locals[last].push(LocalItem { name: param_name.clone(), aka: param_name.clone(), ty: param_type });
     }
 
     fn add_local(&mut self, local_name: &Id, local_type: Type) -> Id {
@@ -102,14 +102,15 @@ impl Xform {
         self.gensym += 1;
         let aka = format!("{}_{}", k, local_name.name);
         let last = self.locals.len()-1;
-        self.locals[last].push(LocalItem { name: local_name.name.clone(), aka: aka.clone(), ty: local_type });
-        Id { name: aka }              // FIXME, we want a name table
+        let aka = Id { name: aka.clone() };
+        self.locals[last].push(LocalItem { name: local_name.clone(), aka: aka.clone(), ty: local_type });
+        aka
     }
 
     fn is_locally_defined(&self, id:&Id) -> bool {
         for rib in &self.locals {
             for item in rib {
-                if id.name == item.name {
+                if id == &item.name {
                     return true;
                 }
             }
@@ -117,10 +118,10 @@ impl Xform {
         false
     }
 
-    fn find_local_binding(&self, id:&Id) -> Option<String> {
+    fn find_local_binding(&self, id:&Id) -> Option<Id> {
         for rib in &self.locals {
             for item in rib {
-                if id.name == item.name {
+                if id == &item.name {
                     return Some(item.aka.clone());
                 }
             }
@@ -154,7 +155,7 @@ impl Xform {
 
     fn find_binding(&mut self, id:&Id) -> Option<Binding> {
         if let Some(aka) = self.find_local_binding(id) {
-            Some(Binding::Local(aka, Type::I32)) // FIXME
+            Some(Binding::Local(aka, Type::I32)) // FIXME, in so many ways...
 // FIXME
 //        } else if self.is_toplevel_defined(id) {
 //            Some(Binding::Global)
