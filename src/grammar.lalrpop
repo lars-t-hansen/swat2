@@ -1,4 +1,4 @@
-// -*- mode: rust -*-
+// -*- mode: rust; fill-column: 80 -*-
 
 // See MANUAL.txt for a concise summary of the grammar.
 
@@ -54,19 +54,6 @@ Return: Type = {
     "->" <t:Type> => t
 }
 
-Block: Box<Block> = {
-    "{" <first:BlockItem> <middle:(";" <BlockItem>)*> ";"? "}" => {
-        let mut items = middle;
-        items.insert(0, first);
-        Box::new(Block { items })
-    }
-}
-
-BlockItem: BlockItem = {
-    "let" <name:Id> ":" <ty:Type> "=" <init:Expr> => BlockItem::Let(Box::new(LetDefn {name, ty, init})),
-    <e:Expr> => BlockItem::Expr(e)
-}
-
 VarOrConst: bool = {
     "var" => true,
     "const" => false
@@ -78,6 +65,24 @@ Type: Type = {
     "f32" => Type::F32,
     "f64" => Type::F64,
     "anyref" => Type::AnyRef
+}
+
+Id: Id = {
+    <n:Name> => Id{name:n}
+}
+
+Block: Box<Block> = {
+    "{" <first:BlockItem> <middle:(";" <BlockItem>)*> <semi:";"?> "}" => {
+        // TODO: record semi
+        let mut items = middle;
+        items.insert(0, first);
+        Box::new(Block { items })
+    }
+}
+
+BlockItem: BlockItem = {
+    "let" <name:Id> ":" <ty:Type> "=" <init:Expr> => BlockItem::Let(Box::new(LetDefn {name, ty, init})),
+    <e:Expr> => BlockItem::Expr(e)
 }
 
 Expr: Box<Expr> = {
@@ -187,9 +192,8 @@ Mulop: Binop = {
     "%u" => Binop::URem
 }
 
-Id: Id = {
-    <n:Name> => Id{name:n}
-}
+// Rough lexical analysis.  The JSItem does not work, nor will string literals
+// work.  We will need to have a custom lexer.
 
 Name: String = <s:r"[a-zA-Z_][a-zA-Z_0-9$]*"> => String::from_str(s).unwrap();
 IntLit: String = <s:r"[0-9]+[iIlL]?"> => String::from_str(s).unwrap();
