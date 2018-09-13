@@ -137,6 +137,8 @@ impl Wast for Expr {
             }
             Expr::Assign{lhs, rhs} => {
             }
+            Expr::Void => {
+            }
         }
     }
 }

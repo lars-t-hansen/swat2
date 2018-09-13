@@ -17,14 +17,24 @@ TopItem: TopItem = {
 }
 
 ModItem: ModItem = {
-    <v:Visibility> <mutable:VarOrConst> <name:Id> ":" <ty:Type> "=" <init:Expr> ";" => {
-        let (exported, imported) = v;
-        ModItem::Var(Box::new(GlobalVar {mutable, exported, imported, name, ty, init}))
+    "extern" <mutable:VarOrConst> <name:Id> ":" <ty:Type> ";" => {
+        let init = Box::new(Expr::Void);
+        ModItem::Var(Box::new(GlobalVar {mutable, exported:false, imported:true, name, ty, init}))
     },
 
-    <v:Visibility> "fn" <name:Id> <formals:Formals> <retn:Return?> <body:Block> => {
-        let (exported, imported) = v;
-        ModItem::Fn(Box::new(FnDef {exported, imported, name, formals, retn, body}))
+    <v:"pub"?> <mutable:VarOrConst> <name:Id> ":" <ty:Type> "=" <init:Expr> ";" => {
+        let exported = if let Some(_) = v { true } else { false };
+        ModItem::Var(Box::new(GlobalVar {mutable, exported, imported:false, name, ty, init}))
+    },
+
+    "extern" "fn" <name:Id> <formals:Formals> <retn:Return?> ";" => {
+        let body = Box::new(Block { items: vec![] });
+        ModItem::Fn(Box::new(FnDef {exported:false, imported:true, name, formals, retn, body}))
+    },
+
+    <v:"pub"?> "fn" <name:Id> <formals:Formals> <retn:Return?> <body:Block> => {
+        let exported = if let Some(_) = v { true } else { false };
+        ModItem::Fn(Box::new(FnDef {exported, imported:false, name, formals, retn, body}))
     }
 }
 
@@ -55,15 +65,6 @@ Block: Box<Block> = {
 BlockItem: BlockItem = {
     "let" <name:Id> ":" <ty:Type> "=" <init:Expr> => BlockItem::Let(Box::new(LetDefn {name, ty, init})),
     <e:Expr> => BlockItem::Expr(e)
-}
-
-Visibility: (bool, bool) = {
-    <v:Visibility2?> => if let Some(e) = v { e } else { (false, false) }
-}
-        
-Visibility2: (bool, bool) = {
-    "pub" => (true, false),
-    "extern" => (false, true)
 }
 
 VarOrConst: bool = {

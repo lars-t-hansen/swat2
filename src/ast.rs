@@ -137,7 +137,8 @@ pub enum Expr {
     Assign{lhs:LValue, rhs:Box<Expr>},
     Call{name:Id, actuals:Vec<Box<Expr>>},
     Id(Id),
-    NumLit(Number)
+    NumLit(Number),
+    Void
 }
 
 #[derive(Debug)]
