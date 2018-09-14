@@ -24,10 +24,11 @@ fn main()
         }
         numfiles += 1;
 
-        let mut infile = File::open(&infilename).expect(&format!("{}: file not found", &infilename));
-
         let mut source = String::new();
-        infile.read_to_string(&mut source).expect(&format!("{}: failed to read", &infilename));
+        {
+            let mut infile = File::open(&infilename).expect(&format!("{}: file not found", &infilename));
+            infile.read_to_string(&mut source).expect(&format!("{}: failed to read", &infilename));
+        }
 
         let prog0 = grammar::ProgramParser::new()
             .parse(&source)
@@ -38,15 +39,17 @@ fn main()
         let mut e = Emitter::new();
         prog1.gen(&mut e);
 
-        let wastfilename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned() + ".wast";
-        let mut wastfile = File::create(&wastfilename).expect(&format!("{}: could not create", &wastfilename));
+        {
+            let wastfilename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned() + ".wast";
+            let mut wastfile = File::create(&wastfilename).expect(&format!("{}: could not create", &wastfilename));
+            wastfile.write(e.get_wast().as_bytes()).expect(&format!("{}: failed to write", &wastfilename));
+        }
 
-        wastfile.write(e.get_wast().as_bytes()).expect(&format!("{}: filed to write", &wastfilename));
-
-        let jsfilename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned() + ".js";
-        let mut jsfile = File::create(&jsfilename).expect(&format!("{}: could not create", &jsfilename));
-
-        jsfile.write(e.get_js().as_bytes()).expect(&format!("{}: filed to write", &jsfilename));
+        {
+            let jsfilename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned() + ".js";
+            let mut jsfile = File::create(&jsfilename).expect(&format!("{}: could not create", &jsfilename));
+            jsfile.write(e.get_js().as_bytes()).expect(&format!("{}: failed to write", &jsfilename));
+        }
     }
 
     if numfiles == 0 {
