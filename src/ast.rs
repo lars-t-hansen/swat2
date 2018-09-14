@@ -138,6 +138,20 @@ pub enum Unop {
     Trunc,
 }
 
+// ConvOps have different input and output types
+pub enum ConvOp {
+    I32ToI64,
+    U32ToI64,
+    I64ToI32,
+    F32ToF64,
+    F64ToF32,
+    F32ToI32Bits,
+    F64ToI64Bits,
+    I32BitsToF32,
+    I64BitsToF64,
+    // and many, many more
+}
+
 #[derive(Debug)]
 pub struct Expr {
     pub ty: Option<Type>,

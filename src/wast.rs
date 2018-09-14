@@ -10,22 +10,36 @@ pub trait Wast {
 }
 
 pub struct Emitter {
-    gensym: usize
+    gensym: usize,
+    wast_text: String,
+    js_text: String
 }
 
 impl Emitter {
     pub fn new() -> Emitter {
         Emitter {
-            gensym: 0
+            gensym: 0,
+            wast_text: String::new(),
+            js_text: String::new()
         }
     }
 
+    pub fn get_wast(&mut self) -> &str {
+        &self.wast_text
+    }
+
+    pub fn get_js(&mut self) -> &str {
+        &self.js_text
+    }
+
     fn js(&mut self, s:&str) {
-        print!("JS: {}", s)
+        self.js_text += s;
+//        print!("JS: {}", s)
     }
 
     fn wast(&mut self, s:&str) {
-        print!("{}", s)
+        self.wast_text += s;
+//        print!("{}", s)
     }
 }
 

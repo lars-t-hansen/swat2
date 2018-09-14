@@ -2,6 +2,7 @@
 
 // TODO: Many more operators, and more precedence levels
 // TODO: loop { ... } thing with break and continue
+// TODO: comments
 // TODO: better lexer
 
 use ast::*;
@@ -202,7 +203,9 @@ Mulop: Binop = {
 // Rough lexical analysis.  The JSItem does not work, nor will string literals
 // work.  We will need to have a custom lexer.
 
-Name: String = <s:r"[a-zA-Z_][a-zA-Z_0-9$]*"> => String::from_str(s).unwrap();
+// Note no leading underscore is allowed in names
+
+Name: String = <s:r"[a-zA-Z][a-zA-Z_0-9]*"> => String::from_str(s).unwrap();
 IntLit: String = <s:r"[0-9]+[iIlL]?"> => String::from_str(s).unwrap();
 FloatLit: String = <s:r"[0-9]+[fFdD]|[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?[fFdD]?"> => String::from_str(s).unwrap();
 JSItem: String = <s:r"js<!<.*>!>"> => String::from_str(s).unwrap();

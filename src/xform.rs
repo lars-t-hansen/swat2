@@ -1,14 +1,32 @@
 // -*- fill-column: 80 -*-
 
-// Transforms a Program into a new Program with the following invariants:
+// Transforms a Program from the parser into a new Program suitable for further
+// analysis and code generation, having the following invariants:
 //
 // - no BlockItem::Let nodes, they have been rewritten as locals + assignment
 // - no Expr::Id nodes, they have been rewritten either as Expr::Local or
 //   Expr::Global nodes
 // - calls to intrinsics have been rewritten as unop/binop/convop nodes
 // - type checking has been done in functions and on global initializers
+// - explicit casts have been inserted for implicit casts [future work]
 // - every expr and block node has a type
 // - the locals array of a function is populated
+// - all references to non-parameter locals are alpha-converted
+
+// Things we could do to simplify emitters, or we could do them in an additional pass:
+//
+// - label all blocks explicitly
+// - rewrite 'while' in terms of a general labeled loop + break idea
+// - rewrite ops that must be synthesized anyway, eg "neg e" => "xor e, -1"
+// - insert explicit drop intrinsics
+// - rewrite assign as set_local and set_global; in general, get rid of assign and lvalue
+//   in their current form
+//
+// Don't do (most of) this yet; it's fine in wast.rs now, and we don't know how
+// this module will evolve once we add classes and virtuals (except that it'll
+// quadruple in size).  It's better to expand things later so that we have the
+// ability to just insert things here without worrying.  Even getting rid of let
+// bindings might be premature here, since we will wish to insert more of them.
 
 use ast::*;
 use std::collections::{HashMap, HashSet};
@@ -184,7 +202,7 @@ impl Xform {
         }
     }
 
-    // TODO: Must process the module top level once first, to define top-level
+    // BUG: Must process the module top level once first, to define top-level
     // phrases, so that we can forward-reference.
 
     fn xform_module(&mut self, m: Module) -> Module {
