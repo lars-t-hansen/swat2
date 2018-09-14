@@ -9,11 +9,15 @@ pub trait Wast {
     fn gen(&self, em:&mut Emitter);
 }
 
-pub struct Emitter {}
+pub struct Emitter {
+    gensym: usize
+}
 
 impl Emitter {
     pub fn new() -> Emitter {
-        Emitter {}
+        Emitter {
+            gensym: 0
+        }
     }
 
     fn js(&mut self, s:&str) {
@@ -61,6 +65,14 @@ impl Wast for ModItem {
     }
 }
 
+fn maybe_export(exported: bool, name:&Id) -> String {
+    if exported {
+        format!("(export \"{}\")", name.name)
+    } else {
+        "".to_string()
+    }
+}
+
 impl Wast for GlobalVar {
     fn gen(&self, em:&mut Emitter) {
         let ty = render_type(Some(self.ty));
@@ -68,7 +80,8 @@ impl Wast for GlobalVar {
         if self.imported {
             em.wast(&format!("(import \"\" \"{}\" (global {}))", self.name.name, ty));
         } else {
-            em.wast(&format!("(global ${} {} ", self.name.name, ty));
+            let export_clause = maybe_export(self.exported, &self.name);
+            em.wast(&format!("(global ${} {} {} ", self.name.name, &export_clause, ty));
             self.init.gen(em);
             em.wast(")\n");
         }
@@ -93,12 +106,7 @@ impl Wast for FnDef {
                                  params,
                                  result))
         } else {
-            let export_clause =
-                if self.exported {
-                    format!("(export \"{}\")", self.name.name)
-                } else {
-                    "".to_string()
-                };
+            let export_clause = maybe_export(self.exported, &self.name);
             em.wast(&format!("(func ${} {} {} {}\n", self.name.name, &export_clause, params, result));
             self.body.gen(em);
             em.wast(")\n");
@@ -150,8 +158,15 @@ impl Wast for Expr {
                 em.wast(")");
             }
             Uxpr::While{test, body} => {
-                // TODO
-                panic!("NYI");
+                let block_id = em.gensym;
+                let loop_id = em.gensym + 1;
+                em.gensym += 2;
+                em.wast(&format!("(block $_blk_{} (loop $_loop_{}\n", block_id, loop_id));
+                em.wast(&format!("(br_if $_blk_{} (i32.eqz ", block_id));
+                test.gen(em);
+                em.wast("))");
+                body.gen(em);
+                em.wast(&format!("(br {})))\n", loop_id));
             }
             Uxpr::Binop{op, lhs, rhs} => {
                 em.wast(&format!("({}.{} ", render_type(self.ty), render_binop(*op)));
@@ -161,8 +176,19 @@ impl Wast for Expr {
                 em.wast(")");
             }
             Uxpr::Unop{op, e} => {
-                // TODO
-                panic!("NYI");
+                match op {
+                    Unop::Neg => {
+                        em.wast(&format!("{}.xor ", render_type(self.ty)));
+                        e.gen(em);
+                        em.wast(&format!("({}.const -1)", render_type(self.ty)));
+                        em.wast(")");
+                    }
+                    _ => {
+                        em.wast(&format!("({}.{} ", render_type(self.ty), render_unop(*op)));
+                        e.gen(em);
+                        em.wast(")");
+                    }
+                }
             }
             Uxpr::Call{name, actuals} => {
                 em.wast(&format!("(call ${} ", name.name));
@@ -212,10 +238,39 @@ fn render_type(ty:Option<Type>) -> String {
 
 fn render_binop(op:Binop) -> String {
     match op {
-        // TODO: more
         Binop::Add => "add".to_string(),
         Binop::Sub => "sub".to_string(),
+        Binop::Mul => "mul".to_string(),
+        Binop::Div => "div_s".to_string(),
+        Binop::UDiv => "div_u".to_string(),
+        Binop::Rem => "rem_s".to_string(),
+        Binop::URem => "rem_u".to_string(),
+        Binop::ShiftLeft => "shl".to_string(),
+        Binop::ShiftRight => "shr_s".to_string(),
+        Binop::UShiftRight => "shr_u".to_string(),
+        Binop::BitAnd => "and".to_string(),
+        Binop::BitOr => "or".to_string(),
+        Binop::BitXor => "xor".to_string(),
         Binop::Less => "lt_s".to_string(),
+        Binop::LessOrEqual => "le_s".to_string(),
+        Binop::Greater => "gt_s".to_string(),
+        Binop::GreaterOrEqual => "ge_s".to_string(),
+        Binop::Equal => "eq".to_string(),
+        Binop::NotEqual => "ne".to_string(),
+        Binop::ULess => "lt_u".to_string(),
+        Binop::ULessOrEqual => "le_u".to_string(),
+        Binop::UGreater => "gt_u".to_string(),
+        Binop::UGreaterOrEqual => "ge_u".to_string(),
+        Binop::RotLeft => "rotl".to_string(),
+        Binop::RotRight => "rotr".to_string(),
+        Binop::Copysign => "copysign".to_string()
+    }
+}
+
+fn render_unop(op:Unop) -> String {
+    match op {
+        // TODO: more
+        Unop::Not => "eqz".to_string(),
         _ => "???".to_string()
     }
 }

@@ -6,7 +6,7 @@ mod ast;
 mod xform;
 mod wast;
 
-use xform::Xform;
+use xform::xform;
 use wast::{Emitter, Wast};
 
 const TEST: &str = "
@@ -17,13 +17,14 @@ module FibMod {
 }
 }";
 
+// TODO: read from input files, write to output files
+
 fn main() {
     let prog0 = grammar::ProgramParser::new()
         .parse(TEST)
         .unwrap();
 
-    let mut xform = Xform::new();
-    let prog1 = xform.xform_program(prog0);
+    let prog1 = xform(prog0);
 
     let mut e = Emitter::new();
     prog1.gen(&mut e);

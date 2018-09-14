@@ -15,7 +15,15 @@ use std::collections::{HashMap, HashSet};
 use std::iter::Iterator;
 use std::rc::Rc;
 
-pub struct Xform {
+pub fn xform(p: Program) -> Program {
+    let mut xform = Xform::new();
+    xform.xform_program(p)
+}
+
+// TODO: senseless to have two maps for intrinsics, use an enum to handle the
+// cases here and in CallTarget.
+
+struct Xform {
     toplevel: HashMap<String, ToplevelItem>,
     locals: Vec<Vec<LocalItem>>,
     intrinsics1: HashMap<String, Unop>,
@@ -44,7 +52,7 @@ enum Binding {
 }
 
 impl Xform {
-    pub fn new() -> Xform {
+    fn new() -> Xform {
         let mut intrinsics1 = HashMap::new();
         intrinsics1.insert("ceil".to_string(), Unop::Ceil);
         intrinsics1.insert("clz".to_string(), Unop::Clz);
@@ -116,22 +124,15 @@ impl Xform {
         aka
     }
 
-    fn is_locally_defined(&self, id:&Id) -> bool {
-        for rib in &self.locals {
-            for item in rib {
-                if id == &item.name {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    // BUG: must search from the end of each rib to handle shadowing properly.
-
     fn find_local_binding(&self, id:&Id) -> Option<Binding> {
-        for rib in &self.locals {
-            for item in rib {
+        let mut ribno = self.locals.len() as i32 - 1;
+        while ribno >= 0 {
+            let rib = &self.locals[ribno as usize];
+            ribno -= 1;
+            let mut locno = rib.len() as i32 - 1;
+            while locno >= 0 {
+                let item = &rib[locno as usize];
+                locno -= 1;
                 if id == &item.name {
                     return Some(Binding::Local(item.aka.clone(), item.ty));
                 }
@@ -143,7 +144,7 @@ impl Xform {
     // Environment accessors, generally
 
     fn find_call_target(&mut self, id:&Id) -> CallTarget {
-        if self.is_locally_defined(id) {
+        if let Some(_) = self.find_local_binding(id) {
             CallTarget::Error
         } else if let Some(b) = self.find_global_binding(id) {
             match b {
@@ -171,7 +172,7 @@ impl Xform {
     
     // Transformers consume the Program and return a transformed one.
 
-    pub fn xform_program(&mut self, p: Program) -> Program {
+    fn xform_program(&mut self, p: Program) -> Program {
         let new_items = p.items.into_iter().map(|item| self.xform_top_item(item)).collect();
         Program { items: new_items }
     }
@@ -222,7 +223,7 @@ impl Xform {
             panic!("Multiply defined top-level name {}", f.name.name);
         }
 
-        // TODO: obviously a map of some kind but can't make the types work out
+        // TODO: obviously a map() of some kind but can't make the types work out
         let mut param_types = vec![];
         for (_,ty) in &f.formals {
             param_types.push(*ty);
@@ -283,10 +284,13 @@ impl Xform {
         for item in b.items {
             match item {
                 BlockItem::Let(l) => {
+                    let l = *l;
+                    let init = self.xform_expr(*l.init);
+                    if !same_type(init.ty, Some(l.ty)) {
+                        panic!("Initializer does not have same type as variable");
+                    }
                     let aka = self.add_local(&l.name, l.ty);
-                    // TODO: This rewrite won't work unless Id(aka) is also in the
-                    // environment, and currently it's not...  Can't we just use l.name?  Shadowing should work
-                    let new_expr = self.xform_expr(Expr{ty:None, u:Uxpr::Assign{lhs:LValue::Id(aka), rhs:l.init}});
+                    let new_expr = Expr{ty:init.ty, u:Uxpr::Assign{lhs:LValue::Local(aka), rhs:Box::new(init)}};
                     last_type = new_expr.ty;
                     new_items.push(BlockItem::Expr(Box::new(new_expr)));
                 }
@@ -324,8 +328,7 @@ impl Xform {
                 if !same_type(test.ty, Some(Type::I32)) {
                     panic!("Test type must be i32");
                 }
-                Expr{ty: None, u:Uxpr::While{test:Box::new(test),
-                                              body:Box::new(body)}}
+                Expr{ty: None, u:Uxpr::While{test:Box::new(test), body:Box::new(body)}}
             }
             Uxpr::Binop{op, lhs, rhs} => {
                 let lhs = self.xform_expr(*lhs);
@@ -367,6 +370,10 @@ impl Xform {
             Uxpr::Unop{op, e} => {
                 let e = self.xform_expr(*e);
                 // TODO: check that operator applies to type in question
+                // Note, extend32 only applies to 64-bit values
+                // Note, sqrt, ceil, floor, nearest, trunc only applies to floats
+                // Note, not, bitnot, clz, ctz, popcnt, extend* only apply to ints
+                // neg applies to all numerics
                 Expr{ty: e.ty, u:Uxpr::Unop{op, e:Box::new(e)}}
             }
             Uxpr::Call{name, actuals} => {
@@ -418,6 +425,7 @@ impl Xform {
             }
             Uxpr::Assign{lhs, rhs} => {
                 // TODO
+                // The rewritten LValue node must use aka names
                 panic!("'assign' NYI")
             }
             Uxpr::Local(_) => {

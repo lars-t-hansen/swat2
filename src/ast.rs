@@ -88,6 +88,7 @@ pub enum Type {
     AnyRef
 }
 
+// Binops have equal operand types and result type
 #[derive(Clone, Copy, Debug)]
 pub enum Binop {
     Add,
@@ -118,6 +119,7 @@ pub enum Binop {
     Copysign,
 }
 
+// Unops have equal operand type and result type
 #[derive(Clone, Copy, Debug)]
 pub enum Unop {
     Neg,
@@ -134,7 +136,6 @@ pub enum Unop {
     Floor,
     Nearest,
     Trunc,
-    // conversions here
 }
 
 #[derive(Debug)]
@@ -160,7 +161,9 @@ pub enum Uxpr {
 
 #[derive(Debug)]
 pub enum LValue {
-    Id(Id)
+    Id(Id),                     // Used before xform
+    Local(Id),                  // Used after xform
+    Global(Id)                  // Used after xform
 }
 
 #[derive(Clone, Copy, Debug)]
