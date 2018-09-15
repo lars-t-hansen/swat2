@@ -9,8 +9,22 @@ mod wast;
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
-use xform::xform;
 use wast::{Emitter, Wast};
+
+// Architectural changes:
+//
+// - "xform" should become "check", which should type check everything
+//   and regularize at a high level and return a different kind of
+//   Module that has top-level information collected
+//
+// - there should be a "lower" before code generation, to rewrite
+//   operations that have no analogy in wasm, eg, -x becomes 0-x, ~x
+//   becomes x^-1, probably a few others, so that the emitter does not
+//   need to do this; also we could transform from named entities to
+//   numbered entities here, the output could be some closer-to-wasm
+//   form.
+//
+// - the emitter should not do very much.
 
 fn main()
 {
@@ -34,7 +48,7 @@ fn main()
             .parse(&source)
             .unwrap();
 
-        let prog1 = xform(prog0);
+        let prog1 = xform::xform(prog0);
 
         let mut e = Emitter::new();
         prog1.gen(&mut e);

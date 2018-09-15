@@ -122,9 +122,9 @@ pub enum Binop {
 // Unops have equal operand type and result type
 #[derive(Clone, Copy, Debug)]
 pub enum Unop {
-    Neg,
-    Not,
-    BitNot,
+    Neg,                        // Not after lowering
+    Not,                        // Not after lowering
+    BitNot,                     // Not after lowering
     Clz,
     Ctz,
     Popcnt,
@@ -136,6 +136,7 @@ pub enum Unop {
     Floor,
     Nearest,
     Trunc,
+    Eqz
 }
 
 // ConvOps have different input and output types

@@ -34,12 +34,10 @@ impl Emitter {
 
     fn js(&mut self, s:&str) {
         self.js_text += s;
-//        print!("JS: {}", s)
     }
 
     fn wast(&mut self, s:&str) {
         self.wast_text += s;
-//        print!("{}", s)
     }
 }
 
@@ -190,15 +188,22 @@ impl Wast for Expr {
                 em.wast(")");
             }
             Uxpr::Unop{op, e} => {
+                let ty = render_type(self.ty);
                 match op {
                     Unop::Neg => {
-                        em.wast(&format!("{}.xor ", render_type(self.ty)));
+                        em.wast(&format!("{}.sub ", &ty));
                         e.gen(em);
-                        em.wast(&format!("({}.const -1)", render_type(self.ty)));
+                        em.wast(&format!("({}.const 1)", &ty));
+                        em.wast(")");
+                    }
+                    Unop::BitNot => {
+                        em.wast(&format!("{}.xor ", &ty));
+                        e.gen(em);
+                        em.wast(&format!("({}.const -1)", &ty));
                         em.wast(")");
                     }
                     _ => {
-                        em.wast(&format!("({}.{} ", render_type(self.ty), render_unop(*op)));
+                        em.wast(&format!("({}.{} ", &ty, render_unop(*op)));
                         e.gen(em);
                         em.wast(")");
                     }
@@ -283,8 +288,20 @@ fn render_binop(op:Binop) -> String {
 
 fn render_unop(op:Unop) -> String {
     match op {
-        // TODO: more
+        Unop::Neg => panic!("Should not happen"),
         Unop::Not => "eqz".to_string(),
-        _ => "???".to_string()
+        Unop::BitNot => panic!("Should not happen"),
+        Unop::Clz => "clz".to_string(),
+        Unop::Ctz => "ctz".to_string(),
+        Unop::Popcnt => "popcnt".to_string(),
+        Unop::Extend8 => "extend8_s".to_string(),
+        Unop::Extend16 => "extend16_s".to_string(),
+        Unop::Extend32 => "extend32_s".to_string(),
+        Unop::Sqrt => "sqrt".to_string(),
+        Unop::Ceil => "ceil".to_string(),
+        Unop::Floor => "floor".to_string(),
+        Unop::Nearest => "nearest".to_string(),
+        Unop::Trunc => "trunc".to_string(),
+        Unop::Eqz => "eqz".to_string(),
     }
 }

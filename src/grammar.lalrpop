@@ -4,6 +4,7 @@
 // TODO: loop { ... } thing with break and continue
 // TODO: comments
 // TODO: better lexer
+// TODO: better error reporting than panic?
 
 use ast::*;
 use std::str::FromStr;
