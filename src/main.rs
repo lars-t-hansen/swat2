@@ -3,6 +3,7 @@
 lalrpop_mod!(pub grammar);
 
 mod ast;
+mod environment;
 mod typecheck;
 mod xform;
 mod wast;

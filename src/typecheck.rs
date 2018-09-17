@@ -20,28 +20,14 @@
 // implicit, rewriting the expression tree as required.
 
 use ast::*;
-use std::collections::{HashMap, HashSet};
+use environment::*;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 struct Check {
-    intrinsics: HashMap<String, Rc<Vec<Rc<Signature>>>>,
-    toplevel:   HashMap<String, ToplevelItem>,
-    locals:     Vec<Vec<LocalItem>>,
-    gensym:     i32
-}
-
-type Signature = (Vec<Type>, Option<Type>);
-
-enum ToplevelItem {
-    Global(bool, Type),
-    Function(Rc<Signature>)
-}
-
-enum Binding {
-    GlobalVar(bool, Type),
-    GlobalFun(Rc<Signature>),
-    Intrinsic(Rc<Vec<Rc<Signature>>>),
-    Local(Id, Type)
+    intrinsics: IntrinsicEnv,
+    toplevel:   ToplevelEnv,
+    locals:     LocalEnv
 }
 
 pub fn check(p:&mut Program) {
@@ -52,113 +38,25 @@ pub fn check(p:&mut Program) {
 impl Check
 {
     fn new() -> Check {
-        let mut intrinsics = HashMap::new();
-
-        let ints = Rc::new(vec![Rc::new((vec![Type::I32], Some(Type::I32))),
-                                Rc::new((vec![Type::I64], Some(Type::I64)))]);
-        let floats = Rc::new(vec![Rc::new((vec![Type::F32], Some(Type::F32))),
-                                  Rc::new((vec![Type::F64], Some(Type::F64)))]);
-        intrinsics.insert("clz".to_string(), ints.clone());
-        intrinsics.insert("ctz".to_string(), ints.clone());
-        intrinsics.insert("popcnt".to_string(), ints.clone());
-        intrinsics.insert("eqz".to_string(), ints.clone());
-        intrinsics.insert("sqrt".to_string(), floats.clone());
-        intrinsics.insert("ceil".to_string(), floats.clone());
-        intrinsics.insert("floor".to_string(), floats.clone());
-        intrinsics.insert("nearest".to_string(), floats.clone());
-        intrinsics.insert("trunc".to_string(), floats.clone());
-
         Check {
-            intrinsics,
-            toplevel:   HashMap::new(),
-            locals:     vec![],
-            gensym:     0
+            intrinsics: IntrinsicEnv::new(),
+            toplevel:   ToplevelEnv::new(),
+            locals:     LocalEnv::new()
         }
     }
 
-    // Toplevel and intrinsic environment.
-
-    fn toplevel_define(&mut self, name: &Id, t:ToplevelItem) {
-        self.toplevel.insert(name.name.clone(), t);
-    }
-    
-    fn is_toplevel_defined(&mut self, name: &Id) -> bool {
-        self.toplevel.contains_key(&name.name)
-    }
-
-    fn find_global_binding(&self, name: &Id) -> Option<Binding> {
-        match self.toplevel.get(&name.name) {
-            Some(ToplevelItem::Global(mutable, t)) => Some(Binding::GlobalVar(*mutable, *t)),
-            Some(ToplevelItem::Function(sig)) => Some(Binding::GlobalFun(sig.clone())),
-            None => None
-        }
-    }
-
-    fn find_intrinsic_binding(&self, name: &Id) -> Option<Binding> {
-        match self.intrinsics.get(&name.name) {
-            Some(b) => Some(Binding::Intrinsic(b.clone())),
-            None => None
-        }
-    }
-
-    // Local environment.
-
-    fn push_rib(&mut self) {
-        self.locals.push(vec![]);
-    }
-
-    fn pop_rib(&mut self) -> Vec<LocalItem> {
-        self.locals.pop().unwrap()
-    }
-
-    fn add_param(&mut self, param_name: &Id, param_type: Type) {
-        let last = self.locals.len()-1;
-        self.locals[last].push(LocalItem { name: param_name.clone(), aka: param_name.clone(), ty: param_type });
-    }
-
-    fn add_local(&mut self, local_name: &Id, local_type: Type) -> Id {
-        let k = self.gensym;
-        self.gensym += 1;
-        let aka = format!("{}_{}", k, local_name);
-        let last = self.locals.len()-1;
-        let aka = Id { name: aka.clone() };
-        self.locals[last].push(LocalItem { name: local_name.clone(), aka: aka.clone(), ty: local_type });
-        aka
-    }
-
-    fn find_local_binding(&self, id:&Id) -> Option<Binding> {
-        let mut ribno = self.locals.len() as i32 - 1;
-        while ribno >= 0 {
-            let rib = &self.locals[ribno as usize];
-            ribno -= 1;
-            let mut locno = rib.len() as i32 - 1;
-            while locno >= 0 {
-                let item = &rib[locno as usize];
-                locno -= 1;
-                if id == &item.name {
-                    return Some(Binding::Local(item.aka.clone(), item.ty));
-                }
-            }
-        }
-        None
-    }
-
-    // Environment accessors, generally
-
-    fn find_binding(&mut self, id:&Id) -> Option<Binding> {
-        if let Some(b) = self.find_local_binding(id) {
+    fn lookup(&mut self, id:&Id) -> Option<Binding> {
+        if let Some(b) = self.locals.lookup(id) {
             Some(b)
-        } else if let Some(b) = self.find_global_binding(id) {
+        } else if let Some(b) = self.toplevel.lookup(id) {
             Some(b)
-        } else if let Some(b) = self.find_intrinsic_binding(id) {
+        } else if let Some(b) = self.intrinsics.lookup(id) {
             Some(b)
         } else {
             None
         }
     }
     
-    // Type checker
-
     fn check_program(&mut self, p:&mut Program) {
         for item in &mut p.items {
             self.check_top_item(item);
@@ -186,10 +84,10 @@ impl Check
     }
 
     fn check_global(&mut self, g:&mut GlobalVar) {
-        if self.is_toplevel_defined(&g.name) {
+        if self.toplevel.probe(&g.name) {
             panic!("Multiply defined top-level name {}", g.name);
         }
-        self.toplevel_define(&g.name, ToplevelItem::Global(g.mutable, g.ty));
+        self.toplevel.insert(&g.name, ToplevelItem::Global(g.mutable, g.ty));
         if !g.imported {
             self.check_const_expr(&mut g.init);
             if !same_type(Some(g.ty), g.init.ty) {
@@ -199,7 +97,7 @@ impl Check
     }
 
     fn check_function(&mut self, f:&mut FnDef) {
-        if self.is_toplevel_defined(&f.name) {
+        if self.toplevel.probe(&f.name) {
             panic!("Multiply defined top-level name {}", f.name);
         }
 
@@ -208,9 +106,9 @@ impl Check
             param_types.push(*ty);
         }
 
-        self.toplevel_define(&f.name, ToplevelItem::Function(Rc::new((param_types, f.retn))));
+        self.toplevel.insert(&f.name, ToplevelItem::Function(Rc::new((param_types, f.retn))));
 
-        self.push_rib();
+        self.locals.push_rib();
 
         let mut param_names = HashSet::<String>::new();
         for (param_name, param_type) in &f.formals {
@@ -218,7 +116,7 @@ impl Check
                 panic!("Duplicate parameter name {}", param_name);
             }
             param_names.insert(param_name.name.clone());
-            self.add_param(param_name, *param_type);
+            self.locals.add_param(param_name, *param_type);
         }
 
         if !f.imported {
@@ -228,7 +126,7 @@ impl Check
             }
         }
 
-        self.pop_rib();
+        self.locals.pop_rib();
     }
 
     fn check_block(&mut self, b:&mut Block) {
@@ -240,7 +138,7 @@ impl Check
                     if !same_type(l.init.ty, Some(l.ty)) {
                         panic!("Initializer does not have same type as variable {}", &l.name);
                     }
-                    self.add_local(&l.name, l.ty);
+                    self.locals.add_local(&l.name, l.ty);
                     last_type = l.init.ty;
                 }
                 BlockItem::Expr(e) => {
@@ -361,7 +259,7 @@ impl Check
                 for actual in &mut *actuals {
                     self.check_expr(actual);
                 }
-                if let Some(b) = self.find_binding(&name) {
+                if let Some(b) = self.lookup(&name) {
                     match b {
                         Binding::GlobalFun(sig) => {
                             let (formals, ret) = &*sig;
@@ -405,7 +303,7 @@ impl Check
                 }
             }
             Uxpr::Id(id) => {
-                match self.find_binding(&id) {
+                match self.lookup(&id) {
                     Some(Binding::Local(_aka, t)) => {
                         expr.ty = Some(t);
                     }
@@ -424,7 +322,7 @@ impl Check
                 self.check_expr(rhs);
                 match lhs {
                     LValue::Id(id) => {
-                        let t = match self.find_binding(&id) {
+                        let t = match self.lookup(&id) {
                             Some(Binding::Local(_, t)) => {
                                 t
                             }
@@ -442,15 +340,10 @@ impl Check
                             panic!("Type of value being stored does not match variable");
                         }
                     }
-                    LValue::Local(_) | LValue::Global(_) => { panic!("Should not happen"); }
+                    LValue::Local(_) | LValue::Global(_) => { panic!("Can't happen"); }
                 }
             }
-            Uxpr::Local(_) => {
-                panic!("'local' node should not appear here");
-            }
-            Uxpr::Global(_) => {
-                panic!("'global' node should not appear here");
-            }
+            Uxpr::Local(_) | Uxpr::Global(_) => { panic!("Can't happen"); }
         }
     }
 }
