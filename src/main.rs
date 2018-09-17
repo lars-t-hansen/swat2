@@ -3,6 +3,7 @@
 lalrpop_mod!(pub grammar);
 
 mod ast;
+mod typecheck;
 mod xform;
 mod wast;
 
@@ -44,9 +45,11 @@ fn main()
             infile.read_to_string(&mut source).expect(&format!("{}: failed to read", &infilename));
         }
 
-        let prog0 = grammar::ProgramParser::new()
+        let mut prog0 = grammar::ProgramParser::new()
             .parse(&source)
             .unwrap();
+
+        typecheck::check(&mut prog0);
 
         let prog1 = xform::xform(prog0);
 

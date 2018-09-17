@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Debug)]
 pub struct Program {
     pub items: Vec<TopItem>
@@ -76,6 +78,12 @@ pub struct Id {
 impl Id {
     pub fn is(&self, x:&str) -> bool {
         self.name == x
+    }
+}
+
+impl fmt::Display for Id {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
     }
 }
 
