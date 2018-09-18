@@ -22,7 +22,6 @@
 use ast::*;
 use environment::*;
 use std::collections::HashSet;
-use std::rc::Rc;
 
 struct Check {
     intrinsics: IntrinsicEnv,
@@ -87,7 +86,7 @@ impl Check
         if self.toplevel.probe(&g.name) {
             panic!("Multiply defined top-level name {}", g.name);
         }
-        self.toplevel.insert(&g.name, ToplevelItem::Global(g.mutable, g.ty));
+        self.toplevel.insert_global(&g.name, g.mutable, g.ty);
         if !g.imported {
             self.check_const_expr(&mut g.init);
             if !same_type(Some(g.ty), g.init.ty) {
@@ -106,7 +105,7 @@ impl Check
             param_types.push(*ty);
         }
 
-        self.toplevel.insert(&f.name, ToplevelItem::Function(Rc::new((param_types, f.retn))));
+        self.toplevel.insert_function(&f.name, param_types, f.retn);
 
         self.locals.push_rib();
 
@@ -263,32 +262,20 @@ impl Check
                     match b {
                         Binding::GlobalFun(sig) => {
                             let (formals, ret) = &*sig;
-                            if actuals.len() != formals.len() {
-                                panic!("Mismatch in number of arguments");
-                            }
-                            for i in 0..actuals.len() {
-                                if !same_type(Some(formals[i]), actuals[i].ty) {
-                                    panic!("Mismatch in argument type");
-                                }
+                            if !match_parameters(&formals, actuals) {
+                                panic!("Mismatch in function signature");
                             }
                             expr.ty = *ret;
                         }
                         Binding::Intrinsic(sigs) => {
                             let mut found = false;
-                          'sigloop:
                             for sig in &*sigs {
                                 let (formals, ret) = &**sig;
-                                if actuals.len() != formals.len() {
-                                    continue 'sigloop;
+                                if match_parameters(&formals, actuals) {
+                                    found = true;
+                                    expr.ty = *ret;
+                                    break;
                                 }
-                                for i in 0..actuals.len() {
-                                    if !same_type(Some(formals[i]), actuals[i].ty) {
-                                        continue 'sigloop;
-                                    }
-                                }
-                                found = true;
-                                expr.ty = *ret;
-                                break 'sigloop;
                             }
                             if !found {
                                 panic!("No signature match for intrinsic {}", &name);
@@ -346,6 +333,18 @@ impl Check
             Uxpr::Local(_) | Uxpr::Global(_) => { panic!("Can't happen"); }
         }
     }
+}
+
+fn match_parameters(formals:&Vec<Type>, actuals:&Vec<Box<Expr>>) -> bool {
+    if actuals.len() != formals.len() {
+        return false;
+    }
+    for i in 0..actuals.len() {
+        if !same_type(Some(formals[i]), actuals[i].ty) {
+            return false;
+        }
+    }
+    true
 }
 
 fn same_type(t1:Option<Type>, t2:Option<Type>) -> bool {

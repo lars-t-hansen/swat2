@@ -6,11 +6,7 @@ pub type Signature = (Vec<Type>, Option<Type>);
 
 pub type Intrinsic = Vec<Rc<Signature>>;
 
-pub enum ToplevelItem {
-    Global(bool, Type),
-    Function(Rc<Signature>)
-}
-
+#[derive(Clone)]
 pub enum Binding {
     GlobalVar(bool, Type),
     GlobalFun(Rc<Signature>),
@@ -53,7 +49,7 @@ impl IntrinsicEnv
 }
 
 pub struct ToplevelEnv {
-    env: HashMap<String, ToplevelItem>
+    env: HashMap<String, Binding>
 }
 
 impl ToplevelEnv
@@ -68,18 +64,17 @@ impl ToplevelEnv
 
     pub fn lookup(&self, name:&Id) -> Option<Binding> {
         match self.env.get(&name.name) {
-            Some(ToplevelItem::Global(mutable, t)) => Some(Binding::GlobalVar(*mutable, *t)),
-            Some(ToplevelItem::Function(sig)) => Some(Binding::GlobalFun(sig.clone())),
-            None => None
+            Some(b) => Some(b.clone()),
+            None    => None
         }
     }
 
-    // TODO:
-    // Split this as insert_function and insert_global
-    // Hide ToplevelItem entirely within this module, or just use Binding instead...
+    pub fn insert_function(&mut self, name:&Id, param_types:Vec<Type>, retn:Option<Type>) {
+        self.env.insert(name.name.clone(), Binding::GlobalFun(Rc::new((param_types, retn))));
+    }
 
-    pub fn insert(&mut self, name:&Id, t:ToplevelItem) {
-        self.env.insert(name.name.clone(), t);
+    pub fn insert_global(&mut self, name:&Id, mutable:bool, ty:Type) {
+        self.env.insert(name.name.clone(), Binding::GlobalVar(mutable, ty));
     }
 }
 
