@@ -29,9 +29,9 @@ struct Check {
     locals:     LocalEnv
 }
 
-pub fn check(p:&mut Program) {
+pub fn check(p:&mut Module) {
     let mut chk = Check::new();
-    chk.check_program(p);
+    chk.check_module(p);
 }
 
 impl Check
@@ -56,29 +56,15 @@ impl Check
         }
     }
     
-    fn check_program(&mut self, p:&mut Program) {
-        for item in &mut p.items {
-            self.check_top_item(item);
-        }
-    }
-
-    fn check_top_item(&mut self, item:&mut TopItem) {
-        match item {
-            TopItem::Mod(m) => { self.check_module(m) }
-            TopItem::Js(_) => { }
-        }
-    }
+    // FIXME: Must process in two rounds, once for top-level bindings and once
+    // for their contents.
 
     fn check_module(&mut self, m:&mut Module) {
         for item in &mut m.items {
-            self.check_mod_item(item);
-        }
-    }
-
-    fn check_mod_item(&mut self, item:&mut ModItem) {
-        match item {
-            ModItem::Var(v) => { self.check_global(v); }
-            ModItem::Fn(f)  => { self.check_function(f); }
+            match item {
+                ModItem::Var(v) => { self.check_global(v); }
+                ModItem::Fn(f)  => { self.check_function(f); }
+            }
         }
     }
 
@@ -160,10 +146,10 @@ impl Check
     fn check_expr(&mut self, expr:&mut Expr) {
         match &mut expr.u {
             Uxpr::Void => {
-                // Carries correct type (void)
+                assert!(expr.ty.is_none());
             }
             Uxpr::NumLit(_) => {
-                // Carries correct type (of the number)
+                assert!(num_type(expr.ty));
             }
             Uxpr::If{test, consequent, alternate} => {
                 self.check_expr(test);
@@ -183,7 +169,25 @@ impl Check
                 if !i32_type(test.ty) {
                     panic!("Test type must be i32");
                 }
-                // Carries correct type (void)
+                assert!(expr.ty.is_none());
+            }
+            Uxpr::Loop{label, body} => {
+                // An alternative here is that check_block takes an Option<Id>
+                // as parameter, denoting any label, and that that label is the
+                // first value in the scope of the block.  Since rebinding is
+                // allowed the semantics won't change.
+                self.locals.push_rib();
+                self.locals.add_label(&label);
+                self.check_block(body);
+                self.locals.pop_rib();
+                assert!(expr.ty.is_none());
+            }
+            Uxpr::Break{label} => {
+                match self.lookup(&label) {
+                    Some(Binding::Label) => {}
+                    _ => { panic!("Not a reference to a label in scope: {}", &label); }
+                }
+                assert!(expr.ty.is_none());
             }
             Uxpr::Binop{op, lhs, rhs} => {
                 self.check_expr(lhs);
@@ -291,6 +295,9 @@ impl Check
             }
             Uxpr::Id(id) => {
                 match self.lookup(&id) {
+                    Some(Binding::Label) => {
+                        panic!("No first-class labels");
+                    }
                     Some(Binding::Local(_aka, t)) => {
                         expr.ty = Some(t);
                     }

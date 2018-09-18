@@ -11,7 +11,8 @@ pub enum Binding {
     GlobalVar(bool, Type),
     GlobalFun(Rc<Signature>),
     Intrinsic(Rc<Intrinsic>),
-    Local(Id, Type)
+    Local(Id, Type),
+    Label
 }
 
 pub struct IntrinsicEnv {
@@ -23,19 +24,30 @@ impl IntrinsicEnv
     pub fn new() -> IntrinsicEnv {
         let mut intrinsics = HashMap::new();
 
-        let ints = Rc::new(vec![Rc::new((vec![Type::I32], Some(Type::I32))),
-                                Rc::new((vec![Type::I64], Some(Type::I64)))]);
-        let floats = Rc::new(vec![Rc::new((vec![Type::F32], Some(Type::F32))),
+        let i_to_i = Rc::new(vec![Rc::new((vec![Type::I32], Some(Type::I32))),
+                                  Rc::new((vec![Type::I64], Some(Type::I64)))]);
+        let ii_to_i = Rc::new(vec![Rc::new((vec![Type::I32, Type::I32], Some(Type::I32))),
+                                   Rc::new((vec![Type::I64, Type::I64], Some(Type::I64)))]);
+        let f_to_f = Rc::new(vec![Rc::new((vec![Type::F32], Some(Type::F32))),
                                   Rc::new((vec![Type::F64], Some(Type::F64)))]);
-        intrinsics.insert("clz".to_string(), ints.clone());
-        intrinsics.insert("ctz".to_string(), ints.clone());
-        intrinsics.insert("popcnt".to_string(), ints.clone());
-        intrinsics.insert("eqz".to_string(), ints.clone());
-        intrinsics.insert("sqrt".to_string(), floats.clone());
-        intrinsics.insert("ceil".to_string(), floats.clone());
-        intrinsics.insert("floor".to_string(), floats.clone());
-        intrinsics.insert("nearest".to_string(), floats.clone());
-        intrinsics.insert("trunc".to_string(), floats.clone());
+        let ff_to_f = Rc::new(vec![Rc::new((vec![Type::F32, Type::F32], Some(Type::F32))),
+                                   Rc::new((vec![Type::F64, Type::F64], Some(Type::F64)))]);
+
+        intrinsics.insert("clz".to_string(), i_to_i.clone());
+        intrinsics.insert("ctz".to_string(), i_to_i.clone());
+        intrinsics.insert("popcnt".to_string(), i_to_i.clone());
+        intrinsics.insert("eqz".to_string(), i_to_i.clone());
+
+        intrinsics.insert("sqrt".to_string(), f_to_f.clone());
+        intrinsics.insert("ceil".to_string(), f_to_f.clone());
+        intrinsics.insert("floor".to_string(), f_to_f.clone());
+        intrinsics.insert("nearest".to_string(), f_to_f.clone());
+        intrinsics.insert("trunc".to_string(), f_to_f.clone());
+
+        intrinsics.insert("rotl".to_string(), ii_to_i.clone());
+        intrinsics.insert("rotr".to_string(), ii_to_i.clone());
+
+        intrinsics.insert("copysign".to_string(), ff_to_f.clone());
 
         IntrinsicEnv { intrinsics }
     }
@@ -112,6 +124,10 @@ impl LocalEnv {
         let aka = Id { name: aka.clone() };
         self.locals[last].push(LocalItem { name: local_name.clone(), aka: aka.clone(), ty: local_type });
         aka
+    }
+
+    pub fn add_label(&mut self, label: &Id) {
+        // FIXME, and fix lookup() to handle it too
     }
 
     pub fn lookup(&self, id:&Id) -> Option<Binding> {

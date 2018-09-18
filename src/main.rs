@@ -3,30 +3,17 @@
 lalrpop_mod!(pub grammar);
 
 mod ast;
+mod desugarer;
 mod environment;
+mod flattener;
 mod typecheck;
-mod xform;
-mod wast;
+//mod xform;
+mod waster;
 
+use ast::TopItem;
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
-use wast::{Emitter, Wast};
-
-// Architectural changes:
-//
-// - "xform" should become "check", which should type check everything
-//   and regularize at a high level and return a different kind of
-//   Module that has top-level information collected
-//
-// - there should be a "lower" before code generation, to rewrite
-//   operations that have no analogy in wasm, eg, -x becomes 0-x, ~x
-//   becomes x^-1, probably a few others, so that the emitter does not
-//   need to do this; also we could transform from named entities to
-//   numbered entities here, the output could be some closer-to-wasm
-//   form.
-//
-// - the emitter should not do very much.
 
 fn main()
 {
@@ -50,8 +37,27 @@ fn main()
             .parse(&source)
             .unwrap();
 
-        typecheck::check(&mut prog0);
+        let wastfilename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned() + ".wast";
+        let mut wastfile = File::create(&wastfilename).expect(&format!("{}: could not create", &wastfilename));
 
+        let jsfilename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned() + ".js";
+        let mut jsfile = File::create(&jsfilename).expect(&format!("{}: could not create", &jsfilename));
+
+        for item in &mut prog0.items {
+            match item {
+                TopItem::Mod(m) => {
+                    typecheck::check(m);
+                    desugarer::desugar(m);
+                    flattener::flatten(m);
+                    waster::wast(m, &mut wastfile);
+                }
+                TopItem::Js(s) => {
+                    jsfile.write(s.as_bytes()).expect(&format!("{}: failed to write", &jsfilename));
+                }
+            }
+        }
+
+/*
         let prog1 = xform::xform(prog0);
 
         let mut e = Emitter::new();
@@ -68,6 +74,7 @@ fn main()
             let mut jsfile = File::create(&jsfilename).expect(&format!("{}: could not create", &jsfilename));
             jsfile.write(e.get_js().as_bytes()).expect(&format!("{}: failed to write", &jsfilename));
         }
+*/
     }
 
     if numfiles == 0 {

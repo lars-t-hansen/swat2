@@ -176,6 +176,8 @@ pub enum Uxpr {
     Global(Id),                 // Used after xform
     If{test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>},
     While{test:Box<Expr>, body:Box<Block>},
+    Loop{label:Id, body:Box<Block>},
+    Break{label:Id},
     Binop{op:Binop, lhs:Box<Expr>, rhs:Box<Expr>},
     Unop{op:Unop, e:Box<Expr>},
     Assign{lhs:LValue, rhs:Box<Expr>},
