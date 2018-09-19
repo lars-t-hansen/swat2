@@ -169,6 +169,7 @@ pub enum Uxpr {
     // `Id` and `Assign` are removed by flattening.
     Void,
     NumLit(Number),
+    NullLit,
     Id(Id),
     If{test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>},
     While{test:Box<Expr>, body:Box<Block>},

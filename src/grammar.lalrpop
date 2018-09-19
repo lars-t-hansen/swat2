@@ -124,6 +124,9 @@ Expr2: Box<Expr> = {
     "(" <e:Expr> ")" => {
         e
     },
+    "null" => {
+        Box::new(Expr{ty: Some(Type::AnyRef), u:Uxpr::NullLit})
+    },
     <name:Id> <actuals:Actuals?> => {
         if let Some(actuals) = actuals {
             Box::new(Expr{ty: None, u:Uxpr::Call{name, actuals}})

@@ -8,8 +8,6 @@
 //  - all variable references have become get_local/set_local/get_global/set_global
 //    operating on alpha-converted names as appropriate
 //  - calls to intrinsics have been rewritten as intrinsic ops
-//  - operations not directly available in wasm have been rewritten, eg,
-//    (bitnot x) => (xor x -1), (neg x) => (- 0 x)
 //  - explicit drops have been inserted when needed
 //  - redundant blocks have been flattened
 //  - resulting Block nodes all have exactly one expression and no let bindings
@@ -157,6 +155,7 @@ impl<'a> Flatten<'a>
                                              u:  Uxpr::Block{ty:None, body:vec![]}});
             }
             Uxpr::NumLit(_) => { }
+            Uxpr::NullLit => { }
             Uxpr::If{test, consequent, alternate} => {
                 self.flatten_expr(test);
                 self.flatten_block(consequent);
@@ -170,28 +169,8 @@ impl<'a> Flatten<'a>
                 self.flatten_expr(lhs);
                 self.flatten_expr(rhs);
             }
-            Uxpr::Unop{op, e} => {
-                match op {
-                    Unop::Neg => {
-                        let mut new_e = box_void();
-                        swap(e, &mut new_e);
-
-                        new_e = box_binop(new_e.ty, Binop::Sub, box_intlit(0, e.ty.unwrap()), new_e);
-                        self.flatten_expr(&mut new_e);
-                        replacement_expr = Some(*new_e);
-                    }
-                    Unop::BitNot => {
-                        let mut new_e = box_void();
-                        swap(e, &mut new_e);
-
-                        new_e = box_binop(new_e.ty, Binop::BitXor, new_e, box_intlit(-1, e.ty.unwrap()));
-                        self.flatten_expr(&mut new_e);
-                        replacement_expr = Some(*new_e);
-                    }
-                    _ => {
-                        self.flatten_expr(e);
-                    }
-                }
+            Uxpr::Unop{e, ..} => {
+                self.flatten_expr(e);
             }
             Uxpr::Call{name, actuals} => {
                 for actual in &mut *actuals {

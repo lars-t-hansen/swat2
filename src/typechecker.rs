@@ -143,6 +143,9 @@ impl Check
             Uxpr::NumLit(_) => {
                 assert!(is_num_type(expr.ty));
             }
+            Uxpr::NullLit => {
+                assert!(is_value_type(expr.ty));
+            }
             Uxpr::If{test, consequent, alternate} => {
                 self.check_expr(test);
                 self.check_block(consequent);

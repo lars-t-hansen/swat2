@@ -1,11 +1,19 @@
-// Remove high-level syntax.  Currently:
+// -*- fill-column: 80 -*-
+//
+// Remove high-level syntax and operations that are not defined on the target
+// platform.  Currently:
 //
 // - `while` is rewritten as iterate+break
 // - `loop` is rewritten as iterate
+// - (bitnot x) is rewritten as (xor x -1)
+// - (neg x) is rewritten as (- 0 x)
+// - (not x) is rewritten as (eqz x),
 //
-// The desugarer can insert new blocks and let bindings, it just can't
-// leave behind new instances of any of the forms it is trying to
-// remove.
+// - TODO: (ne x y) is rewritten as (eqz (ref.eq x y)) if x and y are pointers
+// - TODO: rewrite x % y as something else if x and y are floats
+//
+// The desugarer can insert new blocks and let bindings, it just can't leave
+// behind new instances of any of the forms it is trying to remove.
 
 use ast::*;
 use context::Context;
@@ -61,6 +69,7 @@ impl<'a> Desugarer<'a>
         match &mut expr.u {
             Uxpr::Void => { }
             Uxpr::NumLit(_) => { }
+            Uxpr::NullLit => { }
             Uxpr::If{test, consequent, alternate} => {
                 self.desugar_expr(test);
                 self.desugar_block(consequent);
@@ -98,11 +107,41 @@ impl<'a> Desugarer<'a>
             }
             Uxpr::Break{..} => { }
             Uxpr::Binop{lhs, rhs, ..} => {
+                // TODO: x % y if x and y are float
+                // TODO: x != y if x and y are references
                 self.desugar_expr(lhs);
                 self.desugar_expr(rhs);
             }
-            Uxpr::Unop{e, ..} => {
-                self.desugar_expr(e);
+            Uxpr::Unop{op, e} => {
+                match op {
+                    Unop::BitNot => {
+                        let mut new_e = box_void();
+                        swap(e, &mut new_e);
+
+                        new_e = box_binop(new_e.ty, Binop::BitXor, new_e, box_intlit(-1, e.ty.unwrap()));
+                        self.desugar_expr(&mut new_e);
+                        replacement_expr = Some(new_e);
+                    }
+                    Unop::Not => {
+                        let mut new_e = box_void();
+                        swap(e, &mut new_e);
+
+                        new_e = box_unop(new_e.ty, Unop::Eqz, new_e);
+                        self.desugar_expr(&mut new_e);
+                        replacement_expr = Some(new_e);
+                    }                        
+                    Unop::Neg => {
+                        let mut new_e = box_void();
+                        swap(e, &mut new_e);
+
+                        new_e = box_binop(new_e.ty, Binop::Sub, box_intlit(0, e.ty.unwrap()), new_e);
+                        self.desugar_expr(&mut new_e);
+                        replacement_expr = Some(new_e);
+                    }
+                    _ => {
+                        self.desugar_expr(e);
+                    }
+                }
             }
             Uxpr::Call{actuals, ..} => {
                 for actual in &mut *actuals {

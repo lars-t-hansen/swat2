@@ -132,14 +132,14 @@ impl<'a> Waster<'a>
                 self.emit(&format!("(br ${})", &label));
             }
             Uxpr::Binop{op, lhs, rhs} => {
-                self.emit(&format!("({}.{} ", render_type(e.ty), render_binop(*op)));
+                self.emit(&format!("({}.{} ", render_op_type(e.ty), render_binop(*op, e.ty.unwrap())));
                 self.wast_expr(&lhs);
                 self.emit(" ");
                 self.wast_expr(&rhs);
                 self.emit(")");
             }
             Uxpr::Unop{op, e} => {
-                self.emit(&format!("({}.{} ", &render_type(e.ty), render_unop(*op)));
+                self.emit(&format!("({}.{} ", &render_op_type(e.ty), render_unop(*op)));
                 self.wast_expr(&e);
                 self.emit(")");
             }
@@ -158,6 +158,9 @@ impl<'a> Waster<'a>
                     Number::F32(k) => { self.emit(&format!("(f32.const {})", k)) }
                     Number::F64(k) => { self.emit(&format!("(f64.const {})", k)) }
                 }
+            }
+            Uxpr::NullLit => {
+                self.emit("(ref.null anyref)");
             }
             Uxpr::Drop(e) => {
                 self.emit("(drop ");
@@ -212,12 +215,27 @@ fn render_type(ty:Option<Type>) -> String {
     }
 }
 
-fn render_binop(op:Binop) -> String {
+fn render_op_type(ty:Option<Type>) -> String {
+    match ty {
+        Some(Type::I32) => "i32".to_string(),
+        Some(Type::I64) => "i64".to_string(),
+        Some(Type::F32) => "f32".to_string(),
+        Some(Type::F64) => "f64".to_string(),
+        Some(Type::AnyRef) => "ref".to_string(),
+        None => panic!("Can't happen")
+    }
+}
+
+fn render_binop(op:Binop, ty:Type) -> String {
     match op {
         Binop::Add => "add".to_string(),
         Binop::Sub => "sub".to_string(),
         Binop::Mul => "mul".to_string(),
-        Binop::Div => "div_s".to_string(),
+        Binop::Div => match ty {
+            Type::I32 | Type::I64 => "div_s".to_string(),
+            Type::F32 | Type::F64 => "div".to_string(),
+            _ => panic!("Can't happen")
+        },
         Binop::UDiv => "div_u".to_string(),
         Binop::Rem => "rem_s".to_string(),
         Binop::URem => "rem_u".to_string(),
@@ -227,10 +245,26 @@ fn render_binop(op:Binop) -> String {
         Binop::BitAnd => "and".to_string(),
         Binop::BitOr => "or".to_string(),
         Binop::BitXor => "xor".to_string(),
-        Binop::Less => "lt_s".to_string(),
-        Binop::LessOrEqual => "le_s".to_string(),
-        Binop::Greater => "gt_s".to_string(),
-        Binop::GreaterOrEqual => "ge_s".to_string(),
+        Binop::Less => match ty {
+            Type::I32 | Type::I64 => "lt_s".to_string(),
+            Type::F32 | Type::F64 => "lt".to_string(),
+            _ => panic!("Can't happen")
+        },
+        Binop::LessOrEqual => match ty {
+            Type::I32 | Type::I64 => "le_s".to_string(),
+            Type::F32 | Type::F64 => "le".to_string(),
+            _ => panic!("Can't happen")
+        },
+        Binop::Greater => match ty {
+            Type::I32 | Type::I64 => "gt_s".to_string(),
+            Type::F32 | Type::F64 => "gt".to_string(),
+            _ => panic!("Can't happen")
+        },
+        Binop::GreaterOrEqual => match ty {
+            Type::I32 | Type::I64 => "ge_s".to_string(),
+            Type::F32 | Type::F64 => "ge".to_string(),
+            _ => panic!("Can't happen")
+        },
         Binop::Equal => "eq".to_string(),
         Binop::NotEqual => "ne".to_string(),
         Binop::ULess => "lt_u".to_string(),
@@ -245,7 +279,6 @@ fn render_binop(op:Binop) -> String {
 
 fn render_unop(op:Unop) -> String {
     match op {
-        Unop::Not => "eqz".to_string(),
         Unop::Clz => "clz".to_string(),
         Unop::Ctz => "ctz".to_string(),
         Unop::Popcnt => "popcnt".to_string(),
@@ -258,7 +291,7 @@ fn render_unop(op:Unop) -> String {
         Unop::Nearest => "nearest".to_string(),
         Unop::Trunc => "trunc".to_string(),
         Unop::Eqz => "eqz".to_string(),
-        Unop::Neg | Unop::BitNot => {
+        Unop::Neg | Unop::Not | Unop::BitNot => {
             panic!("Can't happen");
         }
     }
