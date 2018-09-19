@@ -1,39 +1,32 @@
-// Remove high-level syntax:
+// Remove high-level syntax.  Currently:
 //
-// - `while` is rewritten as loop+break
+// - `while` is rewritten as iterate+break
+// - `loop` is rewritten as iterate
 //
-// In the future:
-//
-// - rewrite many other forms
-//
-// Notably, the desugarer can insert new blocks and let bindings, it
-// just can't insert the forms it is trying to remove.
+// The desugarer can insert new blocks and let bindings, it just can't
+// leave behind new instances of any of the forms it is trying to
+// remove.
 
 use ast::*;
+use context::Context;
 use std::iter::Iterator;
 use std::mem::swap;
 
-pub fn desugar(m:&mut Module) {
-    let mut de = Desugarer::new();
+pub fn desugar(context:&mut Context, m:&mut Module) {
+    let mut de = Desugarer::new(context);
     de.desugar_module(m);
 }
 
-struct Desugarer {
-    gensym_counter: usize
+struct Desugarer<'a> {
+    context: &'a mut Context
 }
 
-impl Desugarer
+impl<'a> Desugarer<'a>
 {
-    fn new() -> Desugarer {
+    fn new(context: &mut Context) -> Desugarer {
         Desugarer {
-            gensym_counter: 0
+            context
         }
-    }
-
-    fn gensym(&mut self, tag:&str) -> Id {
-        let k = self.gensym_counter;
-        self.gensym_counter += 1;
-        Id { name: format!("_{}_{}", tag, k) }
     }
 
     fn desugar_module(&mut self, m:&mut Module) {
@@ -81,8 +74,8 @@ impl Desugarer
                 let mut new_test = make_void();
                 swap(test, &mut new_test);
 
-                let break_label = self.gensym("break");
-                let continue_label = self.gensym("continue");
+                let break_label = self.context.gensym("break");
+                let continue_label = self.context.gensym("continue");
                 let cond_break = make_if(new_test,
                                          make_block(vec![make_void()]),
                                          make_block(vec![make_break(&break_label)]));
@@ -96,10 +89,13 @@ impl Desugarer
                 let mut new_body = make_block(vec![]);
                 swap(body, &mut new_body);
 
-                let continue_label = self.gensym("continue");
+                let continue_label = self.context.gensym("continue");
                 let mut new_expr = make_iterate(&break_label, &continue_label, new_body);
                 self.desugar_expr(&mut new_expr);
                 replacement_expr = Some(new_expr);
+            }
+            Uxpr::Iterate{body, ..} => {
+                self.desugar_block(body);
             }
             Uxpr::Break{..} => { }
             Uxpr::Binop{lhs, rhs, ..} => {
@@ -119,12 +115,10 @@ impl Desugarer
                 self.desugar_expr(rhs);
                 match lhs {
                     LValue::Id(_id) => { }
-                    LValue::Local(_) | LValue::Global(_) => { panic!("Can't happen"); }
                 }
             }
-            Uxpr::Iterate{..} |
             Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
-                panic!("Can't happen");
+                panic!("Can't happen - introduced later");
             }
         }
         if let Some(e) = replacement_expr {

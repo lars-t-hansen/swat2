@@ -140,6 +140,7 @@ pub enum Unop {
 }
 
 // ConvOps have different input and output types
+/*
 pub enum ConvOp {
     I32ToI64,
     U32ToI64,
@@ -152,6 +153,7 @@ pub enum ConvOp {
     I64BitsToF64,
     // and many, many more
 }
+*/
 
 #[derive(Debug)]
 pub struct Expr {
@@ -188,9 +190,7 @@ pub enum Uxpr {
 
 #[derive(Debug)]
 pub enum LValue {
-    Id(Id),
-    Local(Id),
-    Global(Id)
+    Id(Id)
 }
 
 #[derive(Clone, Copy, Debug)]

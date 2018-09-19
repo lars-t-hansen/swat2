@@ -3,6 +3,7 @@
 lalrpop_mod!(pub grammar);
 
 mod ast;
+mod context;
 mod desugarer;
 mod environment;
 mod flattener;
@@ -45,8 +46,9 @@ fn main()
         for item in &mut prog0.items {
             match item {
                 ast::TopItem::Mod(m) => {
+                    let mut cx = context::Context::new();
                     typecheck::check(m);
-                    desugarer::desugar(m);
+                    desugarer::desugar(&mut cx, m);
                     flattener::flatten(m);
                     waster::wast(m, &mut wastfile);
                 }

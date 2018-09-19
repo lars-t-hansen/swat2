@@ -330,12 +330,11 @@ impl Check
                             panic!("Type of value being stored does not match variable");
                         }
                     }
-                    LValue::Local(_) | LValue::Global(_) => { panic!("Can't happen"); }
                 }
             }
             Uxpr::Iterate{..} |
             Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
-                panic!("Can't happen");
+                panic!("Can't happen - introduced later");
             }
         }
     }
