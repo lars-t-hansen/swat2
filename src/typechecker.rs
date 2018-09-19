@@ -30,33 +30,17 @@ pub fn check(p:&mut Module) {
 
 struct Check
 {
-    intrinsics: IntrinsicEnv<Type>,
-    toplevel:   ToplevelEnv<Type>,
-    locals:     LocalEnv<Type>
+    env: Env<Type>
 }
 
 impl Check
 {
     fn new() -> Check {
         Check {
-            intrinsics: IntrinsicEnv::new(),
-            toplevel:   ToplevelEnv::new(),
-            locals:     LocalEnv::new()
+            env: Env::new()
         }
     }
 
-    fn lookup(&mut self, id:&Id) -> Option<Binding<Type>> {
-        if let Some(b) = self.locals.lookup(id) {
-            Some(b)
-        } else if let Some(b) = self.toplevel.lookup(id) {
-            Some(b)
-        } else if let Some(b) = self.intrinsics.lookup(id) {
-            Some(b)
-        } else {
-            None
-        }
-    }
-    
     fn check_module(&mut self, m:&mut Module) {
         for item in &mut m.items {
             match item {
@@ -73,10 +57,10 @@ impl Check
     }
 
     fn bind_global(&mut self, g:&mut GlobalVar) {
-        if self.toplevel.probe(&g.name) {
+        if self.env.toplevel.probe(&g.name) {
             panic!("Multiply defined top-level name {}", g.name);
         }
-        self.toplevel.insert_global(&g.name, g.mutable, g.ty);
+        self.env.toplevel.insert_global(&g.name, g.mutable, g.ty);
     }
 
     fn check_global(&mut self, g:&mut GlobalVar) {
@@ -89,15 +73,15 @@ impl Check
     }
 
     fn bind_function(&mut self, f:&mut FnDef) {
-        if self.toplevel.probe(&f.name) {
+        if self.env.toplevel.probe(&f.name) {
             panic!("Multiply defined top-level name {}", f.name);
         }
         let param_types = (&f.formals).into_iter().map(|(_,ty)| *ty).collect();
-        self.toplevel.insert_function(&f.name, param_types, f.retn);
+        self.env.toplevel.insert_function(&f.name, param_types, f.retn);
     }
     
     fn check_function(&mut self, f:&mut FnDef) {
-        self.locals.push_rib();
+        self.env.locals.push_rib();
 
         let mut param_names = HashSet::<String>::new();
         for (param_name, param_type) in &f.formals {
@@ -105,7 +89,7 @@ impl Check
                 panic!("Duplicate parameter name {}", param_name);
             }
             param_names.insert(param_name.name.clone());
-            self.locals.add_param(param_name, *param_type);
+            self.env.locals.add_param(param_name, *param_type);
         }
 
         if !f.imported {
@@ -115,11 +99,11 @@ impl Check
             }
         }
 
-        self.locals.pop_rib();
+        self.env.locals.pop_rib();
     }
 
     fn check_block(&mut self, b:&mut Block) {
-        self.locals.push_rib();
+        self.env.locals.push_rib();
 
         let mut last_type = None;
         for item in &mut b.items {
@@ -129,7 +113,7 @@ impl Check
                     if !is_same_type(l.init.ty, Some(l.ty)) {
                         panic!("Initializer does not have same type as variable {}", &l.name);
                     }
-                    self.locals.add_local(&l.name, l.ty);
+                    self.env.locals.add_local(&l.name, l.ty);
                     last_type = l.init.ty;
                 }
                 BlockItem::Expr(e) => {
@@ -140,7 +124,7 @@ impl Check
         }
         b.ty = last_type;
 
-        self.locals.pop_rib();
+        self.env.locals.pop_rib();
     }
 
     fn check_const_expr(&mut self, e:&mut Expr) {
@@ -180,14 +164,14 @@ impl Check
                 assert!(expr.ty.is_none());
             }
             Uxpr::Loop{break_label, body} => {
-                self.locals.push_rib();
-                self.locals.add_label(&break_label);
+                self.env.locals.push_rib();
+                self.env.locals.add_label(&break_label);
                 self.check_block(body);
-                self.locals.pop_rib();
+                self.env.locals.pop_rib();
                 assert!(expr.ty.is_none());
             }
             Uxpr::Break{label} => {
-                match self.lookup(&label) {
+                match self.env.lookup(&label) {
                     Some(Binding::Label) => {}
                     _ => { panic!("Not a reference to a label in scope: {}", &label); }
                 }
@@ -266,7 +250,7 @@ impl Check
                 for actual in &mut *actuals {
                     self.check_expr(actual);
                 }
-                if let Some(b) = self.lookup(&name) {
+                if let Some(b) = self.env.lookup(&name) {
                     match b {
                         Binding::GlobalFun(sig) => {
                             let (formals, ret) = &*sig;
@@ -298,7 +282,7 @@ impl Check
                 }
             }
             Uxpr::Id(id) => {
-                match self.lookup(&id) {
+                match self.env.lookup(&id) {
                     Some(Binding::Label) => {
                         panic!("No first-class labels");
                     }
@@ -320,7 +304,7 @@ impl Check
                 self.check_expr(rhs);
                 match lhs {
                     LValue::Id(id) => {
-                        let t = match self.lookup(&id) {
+                        let t = match self.env.lookup(&id) {
                             Some(Binding::Local(t)) =>
                                 t,
                             Some(Binding::GlobalVar(mutable, t)) =>

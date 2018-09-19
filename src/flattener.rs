@@ -31,10 +31,7 @@ struct Flatten<'a>
 
     // Environments map names to their alpha-renamings, which are identity for
     // globals and parameters.  Intrinsics don't have renamings.
-
-    intrinsics: IntrinsicEnv<Id>,
-    toplevel:   ToplevelEnv<Id>,
-    locals:     LocalEnv<Id>,
+    env:        Env<Id>,
 
     // Definitons of locals that will go into the flattened functions.
     // The ids are the alpha-renamed names.
@@ -46,28 +43,11 @@ impl<'a> Flatten<'a>
     fn new(context:&'a mut Context) -> Flatten<'a> {
         Flatten {
             context,
-            intrinsics: IntrinsicEnv::new(),
-            toplevel:   ToplevelEnv::new(),
-            locals:     LocalEnv::new(),
-            localdefs:  vec![],
+            env:       Env::new(),
+            localdefs: vec![],
         }
     }
 
-    // TODO: factor this, and the one in typechecker.rs, into environment.rs, to operate
-    // on a generic Environment package.
-
-    fn lookup(&mut self, id:&Id) -> Option<Binding<Id>> {
-        if let Some(b) = self.locals.lookup(id) {
-            Some(b)
-        } else if let Some(b) = self.toplevel.lookup(id) {
-            Some(b)
-        } else if let Some(b) = self.intrinsics.lookup(id) {
-            Some(b)
-        } else {
-            None
-        }
-    }
-    
     fn flatten_module(&mut self, m:&mut Module) {
         for item in &mut m.items {
             match item {
@@ -84,7 +64,7 @@ impl<'a> Flatten<'a>
     }
 
     fn define_global(&mut self, g:&mut GlobalVar) {
-        self.toplevel.insert_global(&g.name, g.mutable, g.ty);
+        self.env.toplevel.insert_global(&g.name, g.mutable, g.ty);
     }
 
     fn flatten_global(&mut self, g:&mut GlobalVar) {
@@ -93,24 +73,24 @@ impl<'a> Flatten<'a>
 
     fn define_function(&mut self, f:&mut FnDef) {
         let param_types = (&f.formals).into_iter().map(|(_,ty)| *ty).collect();
-        self.toplevel.insert_function(&f.name, param_types, f.retn);
+        self.env.toplevel.insert_function(&f.name, param_types, f.retn);
     }
 
     fn flatten_function(&mut self, f:&mut FnDef) {
         if !f.imported {
-            self.locals.push_rib();
-            (&f.formals).into_iter().for_each(|(name,_ty)| self.locals.add_param(name, name.clone()));
+            self.env.locals.push_rib();
+            (&f.formals).into_iter().for_each(|(name,_ty)| self.env.locals.add_param(name, name.clone()));
 
             self.flatten_block(&mut f.body);
 
-            self.locals.pop_rib();
+            self.env.locals.pop_rib();
         }
 
         f.locals = Some(self.localdefs.split_off(0));
     }
 
     fn flatten_block(&mut self, b:&mut Block) {
-        self.locals.push_rib();
+        self.env.locals.push_rib();
 
         let mut new_exprs : Vec<Box<Expr>> = vec![];
         let len = b.items.len();
@@ -125,7 +105,7 @@ impl<'a> Flatten<'a>
                     new_exprs.push(Box::new(Expr{ty: None,
                                                  u:  Uxpr::SetLocal{name: new_name.clone(),
                                                                     e:    new_init}}));
-                    self.locals.add_local(&l.name, new_name.clone());
+                    self.env.locals.add_local(&l.name, new_name.clone());
                     self.localdefs.push((new_name, l.ty));
                 }
                 BlockItem::Expr(e) => {
@@ -166,7 +146,7 @@ impl<'a> Flatten<'a>
                                                                        body: new_exprs}})));
         }
         
-        self.locals.pop_rib();
+        self.env.locals.pop_rib();
     }
 
     fn flatten_expr(&mut self, expr:&mut Expr) {
@@ -217,7 +197,7 @@ impl<'a> Flatten<'a>
                 for actual in &mut *actuals {
                     self.flatten_expr(actual);
                 }
-                if let Binding::Intrinsic(sigs, op) = self.lookup(&name).unwrap() {
+                if let Binding::Intrinsic(sigs, op) = self.env.lookup(&name).unwrap() {
                     for sig in &*sigs {
                         let (formals, ret) = &**sig;
                         if match_parameters(&formals, actuals) {
@@ -243,7 +223,7 @@ impl<'a> Flatten<'a>
                 }
             }
             Uxpr::Id(id) => {
-                match self.lookup(&id) {
+                match self.env.lookup(&id) {
                     Some(Binding::Local(new_name)) => {
                         replacement_expr = Some(Expr{ ty: expr.ty,
                                                       u:  Uxpr::Local(new_name.clone()) });
@@ -262,7 +242,7 @@ impl<'a> Flatten<'a>
                         let mut new_rhs = box_void();
                         swap(rhs, &mut new_rhs);
 
-                        match self.lookup(&id) {
+                        match self.env.lookup(&id) {
                             Some(Binding::Local(new_name)) => {
                                 replacement_expr = Some(Expr{ ty: None,
                                                               u:  Uxpr::SetLocal{name: new_name.clone(),

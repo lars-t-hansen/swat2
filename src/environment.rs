@@ -1,3 +1,5 @@
+// -*- fill-column: 80 -*-
+
 use ast::{Binop, Id, Type, Unop};
 use std::clone::Clone;
 use std::collections::HashMap;
@@ -164,3 +166,36 @@ impl<T> LocalEnv<T>
     }
 }
 
+// Transparent bundle of the several environment aspects, along with common
+// methods.
+
+pub struct Env<T : Clone>
+{
+    pub intrinsics: IntrinsicEnv<T>,
+    pub toplevel:   ToplevelEnv<T>,
+    pub locals:     LocalEnv<T>
+}
+
+impl<T> Env<T>
+    where T : Clone
+{
+    pub fn new() -> Env<T> {
+        Env {
+            intrinsics: IntrinsicEnv::new(),
+            toplevel:   ToplevelEnv::new(),
+            locals:     LocalEnv::new()
+        }
+    }
+
+    pub fn lookup(&self, id:&Id) -> Option<Binding<T>> {
+        if let Some(b) = self.locals.lookup(id) {
+            Some(b)
+        } else if let Some(b) = self.toplevel.lookup(id) {
+            Some(b)
+        } else if let Some(b) = self.intrinsics.lookup(id) {
+            Some(b)
+        } else {
+            None
+        }
+    }
+}
