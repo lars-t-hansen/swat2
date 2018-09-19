@@ -7,7 +7,7 @@ mod context;
 mod desugarer;
 mod environment;
 mod flattener;
-mod typecheck;
+mod typechecker;
 //mod xform;
 mod waster;
 
@@ -47,7 +47,7 @@ fn main()
             match item {
                 ast::TopItem::Mod(m) => {
                     let mut cx = context::Context::new();
-                    typecheck::check(m);
+                    typechecker::check(m);
                     desugarer::desugar(&mut cx, m);
                     flattener::flatten(m);
                     waster::wast(m, &mut wastfile);
