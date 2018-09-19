@@ -155,8 +155,8 @@ impl<'a> Waster<'a>
                 self.wast_expr(&e);
                 self.emit(")");
             }
-            Uxpr::Void => { }
-            Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Assign{..} | Uxpr::Id(_) =>
+            Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} |
+            Uxpr::Assign{..} | Uxpr::Id(_) =>
             {
                 panic!("Can't happen - should have been removed");
             }

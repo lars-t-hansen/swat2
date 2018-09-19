@@ -49,7 +49,7 @@ fn main()
                     let mut cx = context::Context::new();
                     typechecker::check(m);
                     desugarer::desugar(&mut cx, m);
-                    flattener::flatten(m);
+                    flattener::flatten(&mut cx, m);
                     waster::wast(m, &mut wastfile);
                 }
                 ast::TopItem::Js(s) => {

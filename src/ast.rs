@@ -186,7 +186,7 @@ pub enum Uxpr {
     Global(Id),
     SetLocal{name:Id, e:Box<Expr>},
     SetGlobal{name:Id, e:Box<Expr>},
-    Block{ty:Type, body:Vec<Box<Expr>>}
+    Block{ty:Option<Type>, body:Vec<Box<Expr>>}
 }
 
 #[derive(Debug)]
@@ -200,4 +200,42 @@ pub enum Number {
     I64(i64),
     F32(f32),
     F64(f64)
+}
+
+// Common utilities for AST construction and rewriting
+
+pub fn make_void() -> Box<Expr> {
+    Box::new(Expr{ ty: None, u: Uxpr::Void })
+}
+
+pub fn make_binop(ty:Option<Type>, op:Binop, lhs:Box<Expr>, rhs:Box<Expr>) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::Binop{ op, lhs, rhs } })
+}
+
+pub fn make_block(exprs:Vec<Box<Expr>>) -> Box<Block> {
+    Box::new(Block{ ty: None, items: exprs.into_iter().map(|e| BlockItem::Expr(e)).collect() })
+}
+
+pub fn make_if(test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>) -> Box<Expr> {
+    Box::new(Expr{ ty: None, u:  Uxpr::If{ test, consequent, alternate } })
+}
+
+pub fn make_break(label:&Id) -> Box<Expr> {
+    Box::new(Expr{ ty: None, u: Uxpr::Break{ label: label.clone() } })
+}
+
+pub fn make_iterate(break_label:&Id, continue_label:&Id, body:Box<Block>) -> Box<Expr> {
+    Box::new(Expr{ ty:None, u:Uxpr::Iterate{ break_label: break_label.clone(),
+                                             continue_label: continue_label.clone(),
+                                             body } })
+}
+
+pub fn make_intlit(n:i64, ty:Type) -> Box<Expr> {
+    match ty {
+        Type::I32 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit(Number::I32(n as i32)) }),
+        Type::I64 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit(Number::I64(n)) }),
+        Type::F32 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit(Number::F32(n as f32)) }),
+        Type::F64 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit(Number::F64(n as f64)) }),
+        _         => panic!("Can't happen")
+    }
 }

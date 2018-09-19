@@ -9,7 +9,6 @@
 
 use ast::*;
 use context::Context;
-use std::iter::Iterator;
 use std::mem::swap;
 
 pub fn desugar(context:&mut Context, m:&mut Module) {
@@ -23,7 +22,7 @@ struct Desugarer<'a> {
 
 impl<'a> Desugarer<'a>
 {
-    fn new(context: &mut Context) -> Desugarer {
+    fn new(context: &'a mut Context) -> Desugarer<'a> {
         Desugarer {
             context
         }
@@ -126,26 +125,4 @@ impl<'a> Desugarer<'a>
             *expr = *e;
         }
     }
-}
-
-fn make_block(exprs:Vec<Box<Expr>>) -> Box<Block> {
-    Box::new(Block{ ty: None, items: exprs.into_iter().map(|e| BlockItem::Expr(e)).collect() })
-}
-
-fn make_if(test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>) -> Box<Expr> {
-    Box::new(Expr{ ty: None, u:  Uxpr::If{ test, consequent, alternate } })
-}
-
-fn make_void() -> Box<Expr> {
-    Box::new(Expr{ ty: None, u: Uxpr::Void })
-}
-
-fn make_break(label:&Id) -> Box<Expr> {
-    Box::new(Expr{ ty: None, u: Uxpr::Break{ label: label.clone() } })
-}
-
-fn make_iterate(break_label:&Id, continue_label:&Id, body:Box<Block>) -> Box<Expr> {
-    Box::new(Expr{ ty:None, u:Uxpr::Iterate{ break_label: break_label.clone(),
-                                             continue_label: continue_label.clone(),
-                                             body } })
 }

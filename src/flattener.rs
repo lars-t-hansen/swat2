@@ -11,26 +11,34 @@
 //  - explicit drops have been inserted when needed
 //  - remove redundant blocks
 //  - resulting Block nodes all have exactly one expression and no let bindings
+//  - void expressions have been removed, replaced by empty Block expressions
 
 use ast::*;
+use context::Context;
+use std::mem::swap;
 
-pub fn flatten(m:&mut Module) {
-    let mut f = Flatten::new();
+pub fn flatten(cx:&mut Context, m:&mut Module) {
+    let mut f = Flatten::new(cx);
     f.flatten_module(m);
 }
 
-struct Flatten {
+struct Flatten<'a>
+{
+    context: &'a mut Context
 }
 
-impl Flatten {
-    fn new() -> Flatten {
-        Flatten {}
+impl<'a> Flatten<'a>
+{
+    fn new(context:&'a mut Context) -> Flatten<'a> {
+        Flatten {
+            context
+        }
     }
 
     fn flatten_module(&mut self, m:&mut Module) {
         for item in &mut m.items {
             match item {
-                ModItem::Var(_v) => { /* const exprs don't yet have anything flattenable */ }
+                ModItem::Var(v) => { self.flatten_expr(&mut v.init) }
                 ModItem::Fn(f)  => { self.flatten_function(f); }
             }
         }
@@ -47,7 +55,9 @@ impl Flatten {
         // FIXME: flatten blocks within blocks
         // FIXME: insert drops where necessary
         // FIXME: block nodes should contain exactly one expression,
-        //        which can be a block expression or any other expression
+        //        which can be a block expression or any other expression;
+        //        if it is a block expression it contains zero or more
+        //        than one other expressions
         for item in &mut b.items {
             match item {
                 BlockItem::Let(l) => {
@@ -63,8 +73,12 @@ impl Flatten {
     }
 
     fn flatten_expr(&mut self, expr:&mut Expr) {
+        let mut replacement_expr = None;
         match &mut expr.u {
-            Uxpr::Void => { }
+            Uxpr::Void => {
+                replacement_expr = Some(Expr{ty: None,
+                                             u:  Uxpr::Block{ty:None, body:vec![]}});
+            }
             Uxpr::NumLit(_) => { }
             Uxpr::If{test, consequent, alternate} => {
                 self.flatten_expr(test);
@@ -79,9 +93,28 @@ impl Flatten {
                 self.flatten_expr(lhs);
                 self.flatten_expr(rhs);
             }
-            Uxpr::Unop{e, ..} => {
-                // FIXME: rewrite unops
-                self.flatten_expr(e);
+            Uxpr::Unop{op, e} => {
+                match op {
+                    Unop::Neg => {
+                        let mut new_e = make_void();
+                        swap(e, &mut new_e);
+
+                        new_e = make_binop(new_e.ty, Binop::Sub, make_intlit(0, e.ty.unwrap()), new_e);
+                        self.flatten_expr(&mut new_e);
+                        replacement_expr = Some(*new_e);
+                    }
+                    Unop::BitNot => {
+                        let mut new_e = make_void();
+                        swap(e, &mut new_e);
+
+                        new_e = make_binop(new_e.ty, Binop::Xor, new_e, make_intlit(-1, e.ty.unwrap()));
+                        self.flatten_expr(&mut new_e);
+                        replacement_expr = Some(*new_e);
+                    }
+                    _ => {
+                        self.flatten_expr(e);
+                    }
+                }
             }
             Uxpr::Call{actuals, ..} => {
                 // FIXME: rewrite intrinsic calls
@@ -103,5 +136,9 @@ impl Flatten {
                 panic!("Can't happen - introduced later");
             }
         }
+        if let Some(e) = replacement_expr {
+            *expr = e;
+        }
     }
 }
+
