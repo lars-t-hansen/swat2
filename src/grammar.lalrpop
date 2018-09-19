@@ -33,12 +33,12 @@ ModItem: ModItem = {
 
     "extern" "fn" <name:Id> <formals:Formals> <retn:Return?> ";" => {
         let body = Box::new(Block { ty: None, items: vec![] });
-        ModItem::Fn(Box::new(FnDef {exported:false, imported:true, name, formals, retn, body}))
+        ModItem::Fn(Box::new(FnDef {exported:false, imported:true, name, formals, retn, body, locals: None}))
     },
 
     <v:"pub"?> "fn" <name:Id> <formals:Formals> <retn:Return?> <body:Block> => {
         let exported = if let Some(_) = v { true } else { false };
-        ModItem::Fn(Box::new(FnDef {exported, imported:false, name, formals, retn, body}))
+        ModItem::Fn(Box::new(FnDef {exported, imported:false, name, formals, retn, body, locals: None}))
     }
 }
 
@@ -99,21 +99,31 @@ Expr: Box<Expr> = {
 }
 
 Expr0: Box<Expr> = {
-    <lhs:Expr0> <op:Relop> <rhs:Expr1> => Box::new(Expr{ty:None, u:Uxpr::Binop{op,lhs,rhs}}),
+    <lhs:Expr0> <op:Relop> <rhs:Expr1> => box_binop(None, op, lhs, rhs),
     Expr1
 }
 
 Expr1: Box<Expr> = {
-    <lhs:Expr1> <op:Addop> <rhs:Expr2> => Box::new(Expr{ty:None, u:Uxpr::Binop{op,lhs,rhs}}),
+    <lhs:Expr1> <op:Addop> <rhs:Expr2> => box_binop(None, op, lhs, rhs),
     Expr2
 }
 
 Expr2: Box<Expr> = {
-    "if" <test:Expr> <consequent:Block> "else" <alternate:Block> => Box::new(Expr{ty: None, u:Uxpr::If{test,consequent,alternate}}),
-    "while" <test:Expr> <body:Block> => Box::new(Expr{ty: None, u:Uxpr::While{test,body}}),
-    "loop" <break_label:Id> <body:Block> => Box::new(Expr{ty: None, u:Uxpr::Loop{break_label, body}}),
-    "break" <label:Id> => Box::new(Expr{ty: None, u:Uxpr::Break{label}}),
-    "(" <e:Expr> ")" => e,
+    "if" <test:Expr> <consequent:Block> "else" <alternate:Block> => {
+        box_if(test, consequent, alternate)
+    },
+    "while" <test:Expr> <body:Block> => {
+        Box::new(Expr{ty: None, u:Uxpr::While{test,body}})
+    },
+    "loop" <break_label:Id> <body:Block> => {
+        Box::new(Expr{ty: None, u:Uxpr::Loop{break_label, body}})
+    },
+    "break" <label:Id> => {
+        Box::new(Expr{ty: None, u:Uxpr::Break{label}})
+    },
+    "(" <e:Expr> ")" => {
+        e
+    },
     <name:Id> <actuals:Actuals?> => {
         if let Some(actuals) = actuals {
             Box::new(Expr{ty: None, u:Uxpr::Call{name, actuals}})

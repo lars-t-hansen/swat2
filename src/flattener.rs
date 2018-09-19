@@ -71,21 +71,32 @@ impl<'a> Flatten<'a>
     fn flatten_module(&mut self, m:&mut Module) {
         for item in &mut m.items {
             match item {
+                ModItem::Var(v) => { self.define_global(v) }
+                ModItem::Fn(f)  => { self.define_function(f); }
+            }
+        }
+        for item in &mut m.items {
+            match item {
                 ModItem::Var(v) => { self.flatten_global(v) }
                 ModItem::Fn(f)  => { self.flatten_function(f); }
             }
         }
     }
 
-    fn flatten_global(&mut self, g:&mut GlobalVar) {
-        self.flatten_expr(&mut g.init);
+    fn define_global(&mut self, g:&mut GlobalVar) {
         self.toplevel.insert_global(&g.name, g.mutable, g.ty);
     }
 
-    fn flatten_function(&mut self, f:&mut FnDef) {
+    fn flatten_global(&mut self, g:&mut GlobalVar) {
+        self.flatten_expr(&mut g.init);
+    }
+
+    fn define_function(&mut self, f:&mut FnDef) {
         let param_types = (&f.formals).into_iter().map(|(_,ty)| *ty).collect();
         self.toplevel.insert_function(&f.name, param_types, f.retn);
+    }
 
+    fn flatten_function(&mut self, f:&mut FnDef) {
         if !f.imported {
             self.locals.push_rib();
             (&f.formals).into_iter().for_each(|(name,_ty)| self.locals.add_param(name, name.clone()));

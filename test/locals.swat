@@ -1,0 +1,8 @@
+module Locals
+{
+    pub fn myfun(n: i32) -> i32 {  
+        let k: i32 = 0;
+        let m: i32 = 1;
+        k + m
+    }
+}

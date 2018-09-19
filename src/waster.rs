@@ -1,3 +1,5 @@
+// -*- fill-column: 80 -*-
+//
 // Generate SpiderMonkey wast code.
 //
 // We operate on the flattened form and use symbolic names everywhere,
@@ -70,8 +72,27 @@ impl<'a> Waster<'a>
                     self.emit("\n");
                 }
             }
-            self.wast_block(&f.body);
+            self.wast_function_body(&f.body);
             self.emit(")\n");
+        }
+    }
+
+    // At the function body level, we do not need the "block" wrapper we get
+    // from the standard tree shape, so we do something special here.
+
+    fn wast_function_body(&mut self, b:&Block) {
+        assert!(b.items.len() == 1);
+        if let BlockItem::Expr(e) = &b.items[0] {
+            // I fought the borrow checker and the borrow checker won.
+            if let &Expr{u:Uxpr::Block{ref body, ..}, ..} = &**e {
+                for expr in body {
+                    self.wast_expr(expr);
+                }
+            } else {
+                self.wast_expr(&e);
+            }
+        } else {
+            panic!("Can't happen");
         }
     }
 

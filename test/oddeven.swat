@@ -1,0 +1,10 @@
+module OddEven
+{
+    pub fn odd(n: i32) -> i32 {  
+        if n == 0 { 0 } else { even(n-1) }
+    }
+
+    pub fn even(n: i32) -> i32 {  
+        if n == 0 { 1 } else { odd(n-1) }
+    }
+}
