@@ -56,10 +56,13 @@ impl Check
         }
     }
     
-    // FIXME: Must process in two rounds, once for top-level bindings and once
-    // for their contents.
-
     fn check_module(&mut self, m:&mut Module) {
+        for item in &mut m.items {
+            match item {
+                ModItem::Var(v) => { self.bind_global(v); }
+                ModItem::Fn(f)  => { self.bind_function(f); }
+            }
+        }
         for item in &mut m.items {
             match item {
                 ModItem::Var(v) => { self.check_global(v); }
@@ -68,31 +71,34 @@ impl Check
         }
     }
 
-    fn check_global(&mut self, g:&mut GlobalVar) {
+    fn bind_global(&mut self, g:&mut GlobalVar) {
         if self.toplevel.probe(&g.name) {
             panic!("Multiply defined top-level name {}", g.name);
         }
         self.toplevel.insert_global(&g.name, g.mutable, g.ty);
+    }
+
+    fn check_global(&mut self, g:&mut GlobalVar) {
         if !g.imported {
             self.check_const_expr(&mut g.init);
-            if !same_type(Some(g.ty), g.init.ty) {
+            if !is_same_type(Some(g.ty), g.init.ty) {
                 panic!("Init expression type mismatch");
             }
         }
     }
 
-    fn check_function(&mut self, f:&mut FnDef) {
+    fn bind_function(&mut self, f:&mut FnDef) {
         if self.toplevel.probe(&f.name) {
             panic!("Multiply defined top-level name {}", f.name);
         }
-
         let mut param_types = vec![];
         for (_,ty) in &f.formals {
             param_types.push(*ty);
         }
-
         self.toplevel.insert_function(&f.name, param_types, f.retn);
-
+    }
+    
+    fn check_function(&mut self, f:&mut FnDef) {
         self.locals.push_rib();
 
         let mut param_names = HashSet::<String>::new();
@@ -106,7 +112,7 @@ impl Check
 
         if !f.imported {
             self.check_block(&mut f.body);
-            if !same_type(f.retn, f.body.ty) {
+            if !is_same_type(f.retn, f.body.ty) {
                 panic!("Return type / body type mismatch");
             }
         }
@@ -120,7 +126,7 @@ impl Check
             match item {
                 BlockItem::Let(l) => {
                     self.check_expr(&mut l.init);
-                    if !same_type(l.init.ty, Some(l.ty)) {
+                    if !is_same_type(l.init.ty, Some(l.ty)) {
                         panic!("Initializer does not have same type as variable {}", &l.name);
                     }
                     self.locals.add_local(&l.name, l.ty);
@@ -149,16 +155,16 @@ impl Check
                 assert!(expr.ty.is_none());
             }
             Uxpr::NumLit(_) => {
-                assert!(num_type(expr.ty));
+                assert!(is_num_type(expr.ty));
             }
             Uxpr::If{test, consequent, alternate} => {
                 self.check_expr(test);
                 self.check_block(consequent);
                 self.check_block(alternate);
-                if !same_type(test.ty, Some(Type::I32)) {
+                if !is_same_type(test.ty, Some(Type::I32)) {
                     panic!("Test type must be i32");
                 }
-                if !same_type(consequent.ty, alternate.ty) {
+                if !is_same_type(consequent.ty, alternate.ty) {
                     panic!("Arms of 'if' must have same type");
                 }
                 expr.ty = consequent.ty;
@@ -166,7 +172,7 @@ impl Check
             Uxpr::While{test, body} => {
                 self.check_expr(test);
                 self.check_block(body);
-                if !i32_type(test.ty) {
+                if !is_i32_type(test.ty) {
                     panic!("Test type must be i32");
                 }
                 assert!(expr.ty.is_none());
@@ -188,7 +194,7 @@ impl Check
             Uxpr::Binop{op, lhs, rhs} => {
                 self.check_expr(lhs);
                 self.check_expr(rhs);
-                if !same_type(lhs.ty, rhs.ty) {
+                if !is_same_type(lhs.ty, rhs.ty) {
                     panic!("Binop requires equal types");
                 }
                 match op {
@@ -198,26 +204,26 @@ impl Check
                     Binop::ULess | Binop::ULessOrEqual | Binop::UGreater | Binop::UGreaterOrEqual |
                     Binop::RotLeft | Binop::RotRight =>
                     {
-                        if !int_type(lhs.ty) {
+                        if !is_int_type(lhs.ty) {
                             panic!("Integer type required");
                         }
                     }
                     Binop::Copysign =>
                     {
-                        if !float_type(lhs.ty) {
+                        if !is_float_type(lhs.ty) {
                             panic!("Floating type required");
                         }
                     }
                     Binop::Add | Binop::Sub | Binop::Mul | Binop::Div | Binop::Rem |
                     Binop::Less | Binop::LessOrEqual | Binop::Greater | Binop::GreaterOrEqual =>
                     {
-                        if !num_type(lhs.ty) {
+                        if !is_num_type(lhs.ty) {
                             panic!("Numeric type required");
                         }
                     }
                     Binop::Equal | Binop::NotEqual =>
                     {
-                        if !value_type(lhs.ty) {
+                        if !is_value_type(lhs.ty) {
                             panic!("Non-void type required");
                         }
                     }
@@ -229,19 +235,19 @@ impl Check
                 match op {
                     Unop::Neg =>
                     {
-                        if !num_type(e.ty) {
+                        if !is_num_type(e.ty) {
                             panic!("Numeric type required for negation");
                         }
                     }
                     Unop::Not =>
                     {
-                        if !i32_type(e.ty) {
+                        if !is_i32_type(e.ty) {
                             panic!("i32 type required for boolean 'not'");
                         }
                     }
                     Unop::BitNot =>
                     {
-                        if !int_type(e.ty) {
+                        if !is_int_type(e.ty) {
                             panic!("integer type required for bitwise 'not'");
                         }
                     }
@@ -294,7 +300,7 @@ impl Check
                     Some(Binding::Label) => {
                         panic!("No first-class labels");
                     }
-                    Some(Binding::Local(_aka, t)) => {
+                    Some(Binding::Local(t)) => {
                         expr.ty = Some(t);
                     }
                     Some(Binding::GlobalVar(_mutable, t)) => {
@@ -313,14 +319,14 @@ impl Check
                 match lhs {
                     LValue::Id(id) => {
                         let t = match self.lookup(&id) {
-                            Some(Binding::Local(_, t)) =>
+                            Some(Binding::Local(t)) =>
                                 t,
                             Some(Binding::GlobalVar(mutable, t)) =>
                                 if mutable { t } else { panic!("Can't assign to constant"); },
                             _ => 
                                 panic!("Not a reference to a variable: {}", &id)
                         };
-                        if !same_type(Some(t), rhs.ty) {
+                        if !is_same_type(Some(t), rhs.ty) {
                             panic!("Type of value being stored does not match variable");
                         }
                     }
@@ -340,14 +346,14 @@ fn match_parameters(formals:&Vec<Type>, actuals:&Vec<Box<Expr>>) -> bool {
         return false;
     }
     for i in 0..actuals.len() {
-        if !same_type(Some(formals[i]), actuals[i].ty) {
+        if !is_same_type(Some(formals[i]), actuals[i].ty) {
             return false;
         }
     }
     true
 }
 
-fn same_type(t1:Option<Type>, t2:Option<Type>) -> bool {
+fn is_same_type(t1:Option<Type>, t2:Option<Type>) -> bool {
     match (t1, t2) {
         (None, None) => true,
         (None, _)    => false,
@@ -356,37 +362,28 @@ fn same_type(t1:Option<Type>, t2:Option<Type>) -> bool {
     }
 }
 
-fn int_type(t1:Option<Type>) -> bool {
+fn is_int_type(t1:Option<Type>) -> bool {
     match t1 {
         Some(Type::I32) | Some(Type::I64) => true,
         _ => false
     }
 }
 
-fn i32_type(t1:Option<Type>) -> bool {
-    same_type(t1, Some(Type::I32))
+fn is_i32_type(t1:Option<Type>) -> bool {
+    is_same_type(t1, Some(Type::I32))
 }
 
-fn float_type(t1:Option<Type>) -> bool {
+fn is_float_type(t1:Option<Type>) -> bool {
     match t1 {
         Some(Type::F32) | Some(Type::F64) => true,
         _ => false
     }
 }
 
-fn num_type(t1:Option<Type>) -> bool {
-    match t1 {
-        Some(Type::I32) | Some(Type::I64) => true,
-        Some(Type::F32) | Some(Type::F64) => true,
-        _ => false
-    }
+fn is_num_type(t1:Option<Type>) -> bool {
+    is_int_type(t1) || is_float_type(t1)
 }
 
-fn value_type(t1:Option<Type>) -> bool {
-    match t1 {
-        Some(Type::I32) | Some(Type::I64) => true,
-        Some(Type::F32) | Some(Type::F64) => true,
-        Some(Type::AnyRef) => true,
-        _ => false
-    }
+fn is_value_type(t1:Option<Type>) -> bool {
+    !t1.is_none()
 }

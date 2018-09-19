@@ -40,15 +40,7 @@ pub struct FnDef {
     pub name:     Id,
     pub formals:  Vec<(Id,Type)>,
     pub retn:     Option<Type>,
-    pub locals:   Vec<LocalItem>,
     pub body:     Box<Block>
-}
-
-#[derive(Debug)]
-pub struct LocalItem {
-    pub name: Id,               // What the source program calls it
-    pub aka:  Id,               // What we call it in Local and Global nodes
-    pub ty:   Type              // Its type
 }
 
 #[derive(Debug)]

@@ -1,4 +1,4 @@
-use ast::{Id, LocalItem, Type};
+use ast::{Id, Type};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -11,9 +11,18 @@ pub enum Binding {
     GlobalVar(bool, Type),
     GlobalFun(Rc<Signature>),
     Intrinsic(Rc<Intrinsic>),
-    Local(Id, Type),
+    Local(Type),
     Label
 }
+
+/*
+#[derive(Debug)]
+pub struct LocalItem {
+    pub name: Id,               // What the source program calls it
+    pub aka:  Id,               // What we call it in Local and Global nodes
+    pub ty:   Type              // Its type
+}
+*/
 
 pub struct IntrinsicEnv {
     intrinsics: HashMap<String, Rc<Intrinsic>>
@@ -91,15 +100,16 @@ impl ToplevelEnv
 }
 
 pub struct LocalEnv {
-    locals: Vec<Vec<LocalItem>>,
-    gensym: usize
+    // The Binding is a Label or a Local
+    locals: Vec<Vec<(Id, Binding)>>,
+//    gensym: usize
 }
 
 impl LocalEnv {
     pub fn new() -> LocalEnv {
         LocalEnv {
             locals: vec![],
-            gensym: 0
+//            gensym: 0
         }
     }
 
@@ -107,15 +117,16 @@ impl LocalEnv {
         self.locals.push(vec![]);
     }
 
-    pub fn pop_rib(&mut self) -> Vec<LocalItem> {
-        self.locals.pop().unwrap()
+    pub fn pop_rib(&mut self) {
+        self.locals.pop().unwrap();
     }
 
     pub fn add_param(&mut self, param_name: &Id, param_type: Type) {
         let last = self.locals.len()-1;
-        self.locals[last].push(LocalItem { name: param_name.clone(), aka: param_name.clone(), ty: param_type });
+        self.locals[last].push((param_name.clone(), Binding::Local(param_type)));
     }
 
+/*
     pub fn add_local(&mut self, local_name: &Id, local_type: Type) -> Id {
         let k = self.gensym;
         self.gensym += 1;
@@ -125,9 +136,16 @@ impl LocalEnv {
         self.locals[last].push(LocalItem { name: local_name.clone(), aka: aka.clone(), ty: local_type });
         aka
     }
+     */
+    
+    pub fn add_local(&mut self, local_name: &Id, local_type: Type) {
+        let last = self.locals.len()-1;
+        self.locals[last].push((local_name.clone(), Binding::Local(local_type)));
+    }
 
     pub fn add_label(&mut self, label: &Id) {
-        // FIXME, and fix lookup() to handle it too
+        let last = self.locals.len()-1;
+        self.locals[last].push((label.clone(), Binding::Label));
     }
 
     pub fn lookup(&self, id:&Id) -> Option<Binding> {
@@ -139,8 +157,8 @@ impl LocalEnv {
             while locno >= 0 {
                 let item = &rib[locno as usize];
                 locno -= 1;
-                if id == &item.name {
-                    return Some(Binding::Local(item.aka.clone(), item.ty));
+                if id == &item.0 {
+                    return Some(item.1.clone());
                 }
             }
         }

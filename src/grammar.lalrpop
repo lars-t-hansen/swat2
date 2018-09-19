@@ -33,12 +33,12 @@ ModItem: ModItem = {
 
     "extern" "fn" <name:Id> <formals:Formals> <retn:Return?> ";" => {
         let body = Box::new(Block { ty: None, items: vec![] });
-        ModItem::Fn(Box::new(FnDef {exported:false, imported:true, name, formals, retn, locals: vec![], body}))
+        ModItem::Fn(Box::new(FnDef {exported:false, imported:true, name, formals, retn, body}))
     },
 
     <v:"pub"?> "fn" <name:Id> <formals:Formals> <retn:Return?> <body:Block> => {
         let exported = if let Some(_) = v { true } else { false };
-        ModItem::Fn(Box::new(FnDef {exported, imported:false, name, formals, retn, locals: vec![], body}))
+        ModItem::Fn(Box::new(FnDef {exported, imported:false, name, formals, retn, body}))
     }
 }
 
@@ -111,7 +111,7 @@ Expr1: Box<Expr> = {
 Expr2: Box<Expr> = {
     "if" <test:Expr> <consequent:Block> "else" <alternate:Block> => Box::new(Expr{ty: None, u:Uxpr::If{test,consequent,alternate}}),
     "while" <test:Expr> <body:Block> => Box::new(Expr{ty: None, u:Uxpr::While{test,body}}),
-    "loop" <label:Id> <body:Block> => Box::new(Expr{ty: None, u:Uxpr::Loop{label, body}}),
+    "loop" <break_label:Id> <body:Block> => Box::new(Expr{ty: None, u:Uxpr::Loop{break_label, body}}),
     "break" <label:Id> => Box::new(Expr{ty: None, u:Uxpr::Break{label}}),
     "(" <e:Expr> ")" => e,
     <name:Id> <actuals:Actuals?> => {
