@@ -1,4 +1,4 @@
-use ast::{Id, Type};
+use ast::{Binop, Id, Type, Unop};
 use std::clone::Clone;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -8,27 +8,24 @@ pub type Signature = (Vec<Type>, Option<Type>);
 
 pub type Intrinsic = Vec<Rc<Signature>>;
 
+#[derive(Clone, Copy)]
+pub enum Intrin {
+    Unop(Unop),
+    Binop(Binop)
+}
+
 #[derive(Clone)]
 pub enum Binding<T : Clone> {
     GlobalVar(bool, Type),
     GlobalFun(Rc<Signature>),
-    Intrinsic(Rc<Intrinsic>),
+    Intrinsic(Rc<Intrinsic>, Intrin),
     Local(T),
     Label
 }
 
-/*
-#[derive(Debug)]
-pub struct LocalItem {
-    pub name: Id,               // What the source program calls it
-    pub aka:  Id,               // What we call it in Local and Global nodes
-    pub ty:   Type              // Its type
-}
-*/
-
 pub struct IntrinsicEnv<T : Clone>
 {
-    intrinsics:      HashMap<String, Rc<Intrinsic>>,
+    intrinsics:      HashMap<String, (Rc<Intrinsic>, Intrin)>,
     binding_payload: PhantomData<T>
 }
 
@@ -47,21 +44,21 @@ impl<T> IntrinsicEnv<T>
         let ff_to_f = Rc::new(vec![Rc::new((vec![Type::F32, Type::F32], Some(Type::F32))),
                                    Rc::new((vec![Type::F64, Type::F64], Some(Type::F64)))]);
 
-        intrinsics.insert("clz".to_string(), i_to_i.clone());
-        intrinsics.insert("ctz".to_string(), i_to_i.clone());
-        intrinsics.insert("popcnt".to_string(), i_to_i.clone());
-        intrinsics.insert("eqz".to_string(), i_to_i.clone());
+        intrinsics.insert("clz".to_string(),    (i_to_i.clone(), Intrin::Unop(Unop::Clz)));
+        intrinsics.insert("ctz".to_string(),    (i_to_i.clone(), Intrin::Unop(Unop::Ctz)));
+        intrinsics.insert("popcnt".to_string(), (i_to_i.clone(), Intrin::Unop(Unop::Popcnt)));
+        intrinsics.insert("eqz".to_string(),    (i_to_i.clone(), Intrin::Unop(Unop::Eqz)));
 
-        intrinsics.insert("sqrt".to_string(), f_to_f.clone());
-        intrinsics.insert("ceil".to_string(), f_to_f.clone());
-        intrinsics.insert("floor".to_string(), f_to_f.clone());
-        intrinsics.insert("nearest".to_string(), f_to_f.clone());
-        intrinsics.insert("trunc".to_string(), f_to_f.clone());
+        intrinsics.insert("sqrt".to_string(),    (f_to_f.clone(), Intrin::Unop(Unop::Sqrt)));
+        intrinsics.insert("ceil".to_string(),    (f_to_f.clone(), Intrin::Unop(Unop::Ceil)));
+        intrinsics.insert("floor".to_string(),   (f_to_f.clone(), Intrin::Unop(Unop::Floor)));
+        intrinsics.insert("nearest".to_string(), (f_to_f.clone(), Intrin::Unop(Unop::Nearest)));
+        intrinsics.insert("trunc".to_string(),   (f_to_f.clone(), Intrin::Unop(Unop::Trunc)));
 
-        intrinsics.insert("rotl".to_string(), ii_to_i.clone());
-        intrinsics.insert("rotr".to_string(), ii_to_i.clone());
+        intrinsics.insert("rotl".to_string(), (ii_to_i.clone(), Intrin::Binop(Binop::RotLeft)));
+        intrinsics.insert("rotr".to_string(), (ii_to_i.clone(), Intrin::Binop(Binop::RotRight)));
 
-        intrinsics.insert("copysign".to_string(), ff_to_f.clone());
+        intrinsics.insert("copysign".to_string(), (ff_to_f.clone(), Intrin::Binop(Binop::Copysign)));
 
         IntrinsicEnv {
             intrinsics,
@@ -71,8 +68,8 @@ impl<T> IntrinsicEnv<T>
 
     pub fn lookup(&self, name:&Id) -> Option<Binding<T>> {
         match self.intrinsics.get(&name.name) {
-            Some(b) => Some(Binding::Intrinsic(b.clone())),
-            None    => None
+            Some((b, op)) => Some(Binding::Intrinsic(b.clone(), *op)),
+            None          => None
         }
     }
 }
@@ -137,18 +134,6 @@ impl<T> LocalEnv<T>
         self.locals[last].push((param_name.clone(), Binding::Local(param_attrib)));
     }
 
-/*
-    pub fn add_local(&mut self, local_name: &Id, local_type: Type) -> Id {
-        let k = self.gensym;
-        self.gensym += 1;
-        let aka = format!("{}_{}", k, local_name);
-        let last = self.locals.len()-1;
-        let aka = Id { name: aka.clone() };
-        self.locals[last].push(LocalItem { name: local_name.clone(), aka: aka.clone(), ty: local_type });
-        aka
-    }
-     */
-    
     pub fn add_local(&mut self, local_name: &Id, local_attrib: T) {
         let last = self.locals.len()-1;
         self.locals[last].push((local_name.clone(), Binding::Local(local_attrib)));

@@ -208,6 +208,10 @@ pub fn make_void() -> Box<Expr> {
     Box::new(Expr{ ty: None, u: Uxpr::Void })
 }
 
+pub fn make_unop(ty:Option<Type>, op:Unop, e:Box<Expr>) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::Unop{ op, e } })
+}
+
 pub fn make_binop(ty:Option<Type>, op:Binop, lhs:Box<Expr>, rhs:Box<Expr>) -> Box<Expr> {
     Box::new(Expr{ ty, u: Uxpr::Binop{ op, lhs, rhs } })
 }

@@ -275,7 +275,7 @@ impl Check
                             }
                             expr.ty = *ret;
                         }
-                        Binding::Intrinsic(sigs) => {
+                        Binding::Intrinsic(sigs, _op) => {
                             let mut found = false;
                             for sig in &*sigs {
                                 let (formals, ret) = &**sig;
@@ -308,7 +308,7 @@ impl Check
                     Some(Binding::GlobalVar(_mutable, t)) => {
                         expr.ty = Some(t);
                     }
-                    Some(Binding::GlobalFun(_)) | Some(Binding::Intrinsic(_)) => {
+                    Some(Binding::GlobalFun(_)) | Some(Binding::Intrinsic(_, _)) => {
                         panic!("No first-class functions");
                     }
                     None => {

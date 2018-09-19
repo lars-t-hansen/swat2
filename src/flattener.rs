@@ -3,15 +3,15 @@
 // The flattener lowers the intermediate wasm format to something very
 // close to the final format.  On output:
 //
-//  - all lets are removed, locals are alpha-converted
-//  - all functions carry lists of defined locals
+//  - all lets are removed, locals (though not parameters) are alpha-converted
+//  - all functions carry information about defined locals
 //  - all variable references have become get_local/set_local/get_global/set_global
-//    operating on alpha-converted names (except for parameters)
+//    operating on alpha-converted names as appropriate
 //  - calls to intrinsics have been rewritten as intrinsic ops
 //  - operations not directly available in wasm have been rewritten, eg,
 //    (bitnot x) => (xor x -1), (neg x) => (- 0 x)
 //  - explicit drops have been inserted when needed
-//  - remove redundant blocks
+//  - redundant blocks have been flattened
 //  - resulting Block nodes all have exactly one expression and no let bindings
 //  - void expressions have been removed, replaced by empty Block expressions
 
@@ -163,11 +163,26 @@ impl<'a> Flatten<'a>
                 for actual in &mut *actuals {
                     self.flatten_expr(actual);
                 }
-                if let Binding::Intrinsic(sigs) = self.lookup(&name).unwrap() {
+                if let Binding::Intrinsic(sigs, op) = self.lookup(&name).unwrap() {
                     for sig in &*sigs {
                         let (formals, ret) = &**sig;
                         if match_parameters(&formals, actuals) {
-                            // FIXME: rewrite as this intrinsic
+                            match op {
+                                Intrin::Binop(op) => {
+                                    assert!(actuals.len() == 2);
+                                    let mut lhs = make_void();
+                                    swap(&mut actuals[0], &mut lhs);
+                                    let mut rhs = make_void();
+                                    swap(&mut actuals[1], &mut rhs);
+                                    replacement_expr = Some(*make_binop(*ret, op, lhs, rhs));
+                                }
+                                Intrin::Unop(op) => {
+                                    assert!(actuals.len() == 1);
+                                    let mut e = make_void();
+                                    swap(&mut actuals[0], &mut e);
+                                    replacement_expr = Some(*make_unop(*ret, op, e));
+                                }
+                            }
                             break;
                         }
                     }
@@ -179,7 +194,7 @@ impl<'a> Flatten<'a>
                         replacement_expr = Some(Expr{ ty: expr.ty,
                                                       u:  Uxpr::Local(new_name.clone()) });
                     }
-                    Some(Binding::GlobalVar(_mutable, _ty)) => {
+                    Some(Binding::GlobalVar(_mutable, _)) => {
                         replacement_expr = Some(Expr{ ty: expr.ty,
                                                       u:  Uxpr::Global(id.clone()) });
                     }
@@ -189,7 +204,25 @@ impl<'a> Flatten<'a>
             Uxpr::Assign{lhs, rhs} => {
                 self.flatten_expr(rhs);
                 match lhs {
-                    LValue::Id(_id) => { /* FIXME: rewrite as setlocal / setglobal */ }
+                    LValue::Id(id) => {
+                        let mut new_rhs = make_void();
+                        swap(rhs, &mut new_rhs);
+
+                        match self.lookup(&id) {
+                            Some(Binding::Local(new_name)) => {
+                                replacement_expr = Some(Expr{ ty: None,
+                                                              u:  Uxpr::SetLocal{name: new_name.clone(),
+                                                                                 e:    new_rhs} });
+                            }
+                            Some(Binding::GlobalVar(_mutable, _)) => {
+                                replacement_expr = Some(Expr{ ty: None,
+                                                              u:  Uxpr::SetGlobal{name: id.clone(),
+                                                                                  e:    new_rhs} });
+                            }
+                            _ => { panic!("Can't happen") }
+                        }
+                    }
+
                 }
             }
             Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block{..} |
