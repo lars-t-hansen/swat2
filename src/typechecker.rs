@@ -332,7 +332,7 @@ impl Check
                     }
                 }
             }
-            Uxpr::Iterate{..} |
+            Uxpr::Iterate{..} | Uxpr::Block{..} |
             Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
                 panic!("Can't happen - introduced later");
             }

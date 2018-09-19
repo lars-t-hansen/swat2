@@ -117,6 +117,7 @@ impl<'a> Desugarer<'a>
                     LValue::Id(_id) => { }
                 }
             }
+            Uxpr::Block{..} |
             Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
                 panic!("Can't happen - introduced later");
             }

@@ -69,6 +69,7 @@ impl<'a> Waster<'a>
     }
 
     fn wast_block(&mut self, b:&Block) {
+        // FIXME: should a block not always be length 1 now?
         if b.items.len() == 1 {
             if let BlockItem::Expr(e) = &b.items[0] {
                 self.wast_expr(&e);
@@ -89,6 +90,10 @@ impl<'a> Waster<'a>
 
     fn wast_expr(&mut self, e:&Expr) {
         match &e.u {
+            Uxpr::Block{ty:_, body:_} => {
+                // FIXME
+                panic!("NYI");
+            }
             Uxpr::If{test, consequent, alternate} => {
                 self.emit(&format!("(if {} ", render_type(e.ty)));
                 self.wast_expr(&test);
@@ -102,20 +107,6 @@ impl<'a> Waster<'a>
                 self.emit(&format!("(block ${} (loop ${}\n", &break_label, &continue_label));
                 self.wast_block(&body);
                 self.emit(&format!("(br ${})))\n", continue_label));
-
-
-                // FIXME - wrong
-/*
-                let block_id = em.gensym;
-                let loop_id = em.gensym + 1;
-                em.gensym += 2;
-                self.emit(&format!("(block $_blk_{} (loop $_loop_{}\n", block_id, loop_id));
-                self.emit(&format!("(br_if $_blk_{} (i32.eqz ", block_id));
-                test.gen(em);
-                self.emit("))");
-                body.gen(em);
-                self.emit(&format!("(br {})))\n", loop_id));
-*/
             }
             Uxpr::Break{label} => {
                 self.emit(&format!("(br ${})", &label));
@@ -167,7 +158,7 @@ impl<'a> Waster<'a>
             Uxpr::Void => { }
             Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Assign{..} | Uxpr::Id(_) =>
             {
-                panic!("Can't happen");
+                panic!("Can't happen - should have been removed");
             }
         }
     }

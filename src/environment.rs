@@ -24,7 +24,8 @@ pub struct LocalItem {
 }
 */
 
-pub struct IntrinsicEnv {
+pub struct IntrinsicEnv
+{
     intrinsics: HashMap<String, Rc<Intrinsic>>
 }
 
@@ -69,7 +70,8 @@ impl IntrinsicEnv
     }
 }
 
-pub struct ToplevelEnv {
+pub struct ToplevelEnv
+{
     env: HashMap<String, Binding>
 }
 
@@ -99,17 +101,17 @@ impl ToplevelEnv
     }
 }
 
-pub struct LocalEnv {
+pub struct LocalEnv
+{
     // The Binding is a Label or a Local
-    locals: Vec<Vec<(Id, Binding)>>,
-//    gensym: usize
+    locals: Vec<Vec<(Id, Binding)>>
 }
 
-impl LocalEnv {
+impl LocalEnv
+{
     pub fn new() -> LocalEnv {
         LocalEnv {
             locals: vec![],
-//            gensym: 0
         }
     }
 

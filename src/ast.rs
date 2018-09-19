@@ -186,6 +186,7 @@ pub enum Uxpr {
     Global(Id),
     SetLocal{name:Id, e:Box<Expr>},
     SetGlobal{name:Id, e:Box<Expr>},
+    Block{ty:Type, body:Vec<Box<Expr>>}
 }
 
 #[derive(Debug)]
