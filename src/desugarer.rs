@@ -10,6 +10,8 @@
 // just can't insert the forms it is trying to remove.
 
 use ast::*;
+use std::iter::Iterator;
+use std::mem::swap;
 
 pub fn desugar(m:&mut Module) {
     let mut de = Desugarer::new();
@@ -17,12 +19,21 @@ pub fn desugar(m:&mut Module) {
 }
 
 struct Desugarer {
+    gensym_counter: usize
 }
 
 impl Desugarer
 {
     fn new() -> Desugarer {
-        Desugarer { }
+        Desugarer {
+            gensym_counter: 0
+        }
+    }
+
+    fn gensym(&mut self, tag:&str) -> Id {
+        let k = self.gensym_counter;
+        self.gensym_counter += 1;
+        Id { name: format!("_{}_{}", tag, k) }
     }
 
     fn desugar_module(&mut self, m:&mut Module) {
@@ -64,30 +75,31 @@ impl Desugarer
                 self.desugar_block(alternate);
             }
             Uxpr::While{test, body} => {
-                // FIXME
-                // This becomes: (loop $l (if (not test) (break $b)) body) with new name $l
-                self.desugar_expr(test);
-                self.desugar_block(body);
-                /*
-                let label = ...;
-                replacement_expr =
-                (None,
-                Uxpr::Loop{
-                label,
-                body: Block {
-                ty: None,
-                body:
-                vec![Expr {
-                ty:None
-                u:Uxpr::Loop{
-                name: loop_name,
-                body: Block {
-                ty:None,
-                vec![Expr{ty:None,
-                 */
+                let mut new_body = make_block(vec![]);
+                swap(body, &mut new_body);
+
+                let mut new_test = make_void();
+                swap(test, &mut new_test);
+
+                let break_label = self.gensym("break");
+                let continue_label = self.gensym("continue");
+                let cond_break = make_if(new_test,
+                                         make_block(vec![make_void()]),
+                                         make_block(vec![make_break(&break_label)]));
+
+                new_body.items.insert(0, BlockItem::Expr(cond_break));
+                let mut new_expr = make_iterate(&break_label, &continue_label, new_body);
+                self.desugar_expr(&mut new_expr);
+                replacement_expr = Some(new_expr);
             }
-            Uxpr::Loop{body, ..} => {
-                self.desugar_block(body);
+            Uxpr::Loop{body, break_label} => {
+                let mut new_body = make_block(vec![]);
+                swap(body, &mut new_body);
+
+                let continue_label = self.gensym("continue");
+                let mut new_expr = make_iterate(&break_label, &continue_label, new_body);
+                self.desugar_expr(&mut new_expr);
+                replacement_expr = Some(new_expr);
             }
             Uxpr::Break{..} => { }
             Uxpr::Binop{lhs, rhs, ..} => {
@@ -110,11 +122,35 @@ impl Desugarer
                     LValue::Local(_) | LValue::Global(_) => { panic!("Can't happen"); }
                 }
             }
-            Uxpr::Local(_) | Uxpr::Global(_) => { panic!("Can't happen"); }
+            Uxpr::Iterate{..} |
+            Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
+                panic!("Can't happen");
+            }
         }
-        if let Some((ty, u)) = replacement_expr {
-            expr.ty = ty;
-            expr.u = u;
+        if let Some(e) = replacement_expr {
+            *expr = *e;
         }
     }
+}
+
+fn make_block(exprs:Vec<Box<Expr>>) -> Box<Block> {
+    Box::new(Block{ ty: None, items: exprs.into_iter().map(|e| BlockItem::Expr(e)).collect() })
+}
+
+fn make_if(test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>) -> Box<Expr> {
+    Box::new(Expr{ ty: None, u:  Uxpr::If{ test, consequent, alternate } })
+}
+
+fn make_void() -> Box<Expr> {
+    Box::new(Expr{ ty: None, u: Uxpr::Void })
+}
+
+fn make_break(label:&Id) -> Box<Expr> {
+    Box::new(Expr{ ty: None, u: Uxpr::Break{ label: label.clone() } })
+}
+
+fn make_iterate(break_label:&Id, continue_label:&Id, body:Box<Block>) -> Box<Expr> {
+    Box::new(Expr{ ty:None, u:Uxpr::Iterate{ break_label: break_label.clone(),
+                                             continue_label: continue_label.clone(),
+                                             body } })
 }

@@ -10,7 +10,6 @@ mod typecheck;
 //mod xform;
 mod waster;
 
-use ast::TopItem;
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -45,13 +44,13 @@ fn main()
 
         for item in &mut prog0.items {
             match item {
-                TopItem::Mod(m) => {
+                ast::TopItem::Mod(m) => {
                     typecheck::check(m);
                     desugarer::desugar(m);
                     flattener::flatten(m);
                     waster::wast(m, &mut wastfile);
                 }
-                TopItem::Js(s) => {
+                ast::TopItem::Js(s) => {
                     jsfile.write(s.as_bytes()).expect(&format!("{}: failed to write", &jsfilename));
                 }
             }

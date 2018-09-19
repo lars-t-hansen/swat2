@@ -171,13 +171,9 @@ impl Check
                 }
                 assert!(expr.ty.is_none());
             }
-            Uxpr::Loop{label, body} => {
-                // An alternative here is that check_block takes an Option<Id>
-                // as parameter, denoting any label, and that that label is the
-                // first value in the scope of the block.  Since rebinding is
-                // allowed the semantics won't change.
+            Uxpr::Loop{break_label, body} => {
                 self.locals.push_rib();
-                self.locals.add_label(&label);
+                self.locals.add_label(&break_label);
                 self.check_block(body);
                 self.locals.pop_rib();
                 assert!(expr.ty.is_none());
@@ -317,18 +313,12 @@ impl Check
                 match lhs {
                     LValue::Id(id) => {
                         let t = match self.lookup(&id) {
-                            Some(Binding::Local(_, t)) => {
-                                t
-                            }
-                            Some(Binding::GlobalVar(mutable, t)) => {
-                                if !mutable {
-                                    panic!("Can't assign to constant");
-                                }
-                                t
-                            }
-                            _ => {
-                                panic!("Not a reference to a variable: {}", &id);
-                            }
+                            Some(Binding::Local(_, t)) =>
+                                t,
+                            Some(Binding::GlobalVar(mutable, t)) =>
+                                if mutable { t } else { panic!("Can't assign to constant"); },
+                            _ => 
+                                panic!("Not a reference to a variable: {}", &id)
                         };
                         if !same_type(Some(t), rhs.ty) {
                             panic!("Type of value being stored does not match variable");
@@ -337,7 +327,10 @@ impl Check
                     LValue::Local(_) | LValue::Global(_) => { panic!("Can't happen"); }
                 }
             }
-            Uxpr::Local(_) | Uxpr::Global(_) => { panic!("Can't happen"); }
+            Uxpr::Iterate{..} |
+            Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
+                panic!("Can't happen");
+            }
         }
     }
 }

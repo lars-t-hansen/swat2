@@ -1,8 +1,8 @@
 // The flattener lowers the intermediate wasm format to something very
-// close to the final format:
+// close to the final format.  On output:
 //
 //  - all loops are labeled, all break and continue use labels
-//  - all lets are removed, variables are alpha-converted
+//  - all lets are removed, locals are alpha-converted
 //  - all functions carry lists of defined locals
 //  - all variable references have become get_local/set_local/get_global/set_global
 //  - calls to intrinsics have been rewritten as intrinsic ops

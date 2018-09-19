@@ -163,32 +163,42 @@ pub enum ConvOp {
 
 #[derive(Debug)]
 pub struct Expr {
+    // `ty` is stable after type checking.
     pub ty: Option<Type>,
     pub u:  Uxpr
 }
 
 #[derive(Debug)]
 pub enum Uxpr {
+    // `While` and `Loop` are removed by desugaring.
+    // `Id` and `Assign` are removed by flattening.
     Void,
     NumLit(Number),
-    Id(Id),                     // Used before xform
-    Local(Id),                  // Used after xform
-    Global(Id),                 // Used after xform
+    Id(Id),
     If{test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>},
     While{test:Box<Expr>, body:Box<Block>},
-    Loop{label:Id, body:Box<Block>},
+    Loop{break_label:Id, body:Box<Block>},
     Break{label:Id},
     Binop{op:Binop, lhs:Box<Expr>, rhs:Box<Expr>},
     Unop{op:Unop, e:Box<Expr>},
     Assign{lhs:LValue, rhs:Box<Expr>},
     Call{name:Id, actuals:Vec<Box<Expr>>},
+
+    // Introduced by desugaring.
+    Iterate{break_label:Id, continue_label:Id, body:Box<Block>},
+
+    // Introduced by flattening.
+    Local(Id),
+    Global(Id),
+    SetLocal{name:Id, e:Box<Expr>},
+    SetGlobal{name:Id, e:Box<Expr>},
 }
 
 #[derive(Debug)]
 pub enum LValue {
-    Id(Id),                     // Used before xform
-    Local(Id),                  // Used after xform
-    Global(Id)                  // Used after xform
+    Id(Id),
+    Local(Id),
+    Global(Id)
 }
 
 #[derive(Clone, Copy, Debug)]
