@@ -67,29 +67,29 @@ impl<'a> Desugarer<'a>
                 self.desugar_block(alternate);
             }
             Uxpr::While{test, body} => {
-                let mut new_body = make_block(vec![]);
+                let mut new_body = box_block(vec![]);
                 swap(body, &mut new_body);
 
-                let mut new_test = make_void();
+                let mut new_test = box_void();
                 swap(test, &mut new_test);
 
                 let break_label = self.context.gensym("break");
                 let continue_label = self.context.gensym("continue");
-                let cond_break = make_if(new_test,
-                                         make_block(vec![make_void()]),
-                                         make_block(vec![make_break(&break_label)]));
+                let cond_break = box_if(new_test,
+                                        box_block(vec![box_void()]),
+                                        box_block(vec![box_break(&break_label)]));
 
                 new_body.items.insert(0, BlockItem::Expr(cond_break));
-                let mut new_expr = make_iterate(&break_label, &continue_label, new_body);
+                let mut new_expr = box_iterate(&break_label, &continue_label, new_body);
                 self.desugar_expr(&mut new_expr);
                 replacement_expr = Some(new_expr);
             }
             Uxpr::Loop{body, break_label} => {
-                let mut new_body = make_block(vec![]);
+                let mut new_body = box_block(vec![]);
                 swap(body, &mut new_body);
 
                 let continue_label = self.context.gensym("continue");
-                let mut new_expr = make_iterate(&break_label, &continue_label, new_body);
+                let mut new_expr = box_iterate(&break_label, &continue_label, new_body);
                 self.desugar_expr(&mut new_expr);
                 replacement_expr = Some(new_expr);
             }
@@ -116,7 +116,7 @@ impl<'a> Desugarer<'a>
                     LValue::Id(_id) => { }
                 }
             }
-            Uxpr::Block{..} |
+            Uxpr::Block{..} | Uxpr::Drop(_) |
             Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
                 panic!("Can't happen - introduced later");
             }

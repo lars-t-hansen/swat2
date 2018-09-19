@@ -14,6 +14,8 @@ pub enum Intrin {
     Binop(Binop)
 }
 
+// TODO: "GlobalVar" could just be "Global" and "GlobalFun" could just be "Function"
+
 #[derive(Clone)]
 pub enum Binding<T : Clone> {
     GlobalVar(bool, Type),

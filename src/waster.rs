@@ -62,37 +62,36 @@ impl<'a> Waster<'a>
         } else {
             let export_clause = maybe_export(f.exported, &f.name);
             self.emit(&format!("(func ${} {} {} {}\n", &f.name, &export_clause, params, result));
-            // TODO: locals!
+            if let Some(locals) = &f.locals {
+                for (name, ty) in locals {
+                    self.emit(&format!("(local ${} {}) ", name, render_type(Some(*ty))));
+                }
+                if locals.len() > 0 {
+                    self.emit("\n");
+                }
+            }
             self.wast_block(&f.body);
             self.emit(")\n");
         }
     }
 
     fn wast_block(&mut self, b:&Block) {
-        // FIXME: should a block not always be length 1 now?
-        if b.items.len() == 1 {
-            if let BlockItem::Expr(e) = &b.items[0] {
-                self.wast_expr(&e);
-            } else {
-                panic!("Can't happen");
-            }
+        assert!(b.items.len() == 1);
+        if let BlockItem::Expr(e) = &b.items[0] {
+            self.wast_expr(&e);
         } else {
-            self.emit(&format!("(block {} ", render_type(b.ty)));
-            for item in &b.items {
-                match item {
-                    BlockItem::Let(_) => { panic!("Can't happen"); }
-                    BlockItem::Expr(e) => { self.wast_expr(&e); }
-                }
-            }
-            self.emit(")");
+            panic!("Can't happen");
         }
     }
 
     fn wast_expr(&mut self, e:&Expr) {
         match &e.u {
-            Uxpr::Block{ty:_, body:_} => {
-                // FIXME
-                panic!("NYI");
+            Uxpr::Block{ty, body} => {
+                self.emit(&format!("(block {} ", render_type(*ty)));
+                for expr in body {
+                    self.wast_expr(expr);
+                }
+                self.emit(")\n");
             }
             Uxpr::If{test, consequent, alternate} => {
                 self.emit(&format!("(if {} ", render_type(e.ty)));
@@ -138,6 +137,11 @@ impl<'a> Waster<'a>
                     Number::F32(k) => { self.emit(&format!("(f32.const {})", k)) }
                     Number::F64(k) => { self.emit(&format!("(f64.const {})", k)) }
                 }
+            }
+            Uxpr::Drop(e) => {
+                self.emit("(drop ");
+                self.wast_expr(&e);
+                self.emit(")\n");
             }
             Uxpr::Local(id) => {
                 self.emit(&format!("(get_local ${})", &id));

@@ -27,25 +27,34 @@ pub fn flatten(cx:&mut Context, m:&mut Module) {
 
 struct Flatten<'a>
 {
+    context:    &'a mut Context,
+
     // Environments map names to their alpha-renamings, which are identity for
     // globals and parameters.  Intrinsics don't have renamings.
 
     intrinsics: IntrinsicEnv<Id>,
     toplevel:   ToplevelEnv<Id>,
     locals:     LocalEnv<Id>,
-    context:    &'a mut Context
+
+    // Definitons of locals that will go into the flattened functions.
+    // The ids are the alpha-renamed names.
+    localdefs:  Vec<(Id,Type)>,
 }
 
 impl<'a> Flatten<'a>
 {
     fn new(context:&'a mut Context) -> Flatten<'a> {
         Flatten {
+            context,
             intrinsics: IntrinsicEnv::new(),
             toplevel:   ToplevelEnv::new(),
             locals:     LocalEnv::new(),
-            context
+            localdefs:  vec![],
         }
     }
+
+    // TODO: factor this, and the one in typechecker.rs, into environment.rs, to operate
+    // on a generic Environment package.
 
     fn lookup(&mut self, id:&Id) -> Option<Binding<Id>> {
         if let Some(b) = self.locals.lookup(id) {
@@ -86,32 +95,66 @@ impl<'a> Flatten<'a>
             self.locals.pop_rib();
         }
 
-        // FIXME: attach renamed locals
+        f.locals = Some(self.localdefs.split_off(0));
     }
 
     fn flatten_block(&mut self, b:&mut Block) {
         self.locals.push_rib();
 
-        // FIXME: insert drops where necessary
-        // FIXME: block nodes should contain exactly one expression,
-        //        which can be a block expression or any other expression;
-        //        if it is a block expression it contains zero or more
-        //        than one other expressions
-
-        for item in &mut b.items {
+        let mut new_exprs : Vec<Box<Expr>> = vec![];
+        let len = b.items.len();
+        for i in 0..len {
+            let mut item = &mut b.items[i];
             match item {
                 BlockItem::Let(l) => {
                     self.flatten_expr(&mut l.init);
-                    // FIXME: remove the let, turn this node into a void expr node
-                    // or generate a new vector of nodes...
+                    let new_name = self.context.gensym(&l.name.name); // FIXME: dodgy? what if name is "loop", say?
+                    let mut new_init = box_void();
+                    swap(&mut l.init, &mut new_init);
+                    new_exprs.push(Box::new(Expr{ty: None,
+                                                 u:  Uxpr::SetLocal{name: new_name.clone(),
+                                                                    e:    new_init}}));
+                    self.locals.add_local(&l.name, new_name.clone());
+                    self.localdefs.push((new_name, l.ty));
                 }
                 BlockItem::Expr(e) => {
+                    let must_drop = i < len-1 && !e.ty.is_none();
                     self.flatten_expr(e);
-                    // FIXME: if the e after flattening is a Uxpr::Block, inline it
+                    let mut new_e = box_void();
+                    swap(e, &mut new_e);
+
+                    let mut moved = false;
+                    if let Expr{u: Uxpr::Block{body, ..}, ..} = &mut *new_e {
+                        moved = true;
+                        if body.len() > 0 {
+                            if must_drop {
+                                let last_e = box_drop(body.pop().unwrap());
+                                new_exprs.append(body);
+                                new_exprs.push(last_e);
+                            } else {
+                                new_exprs.append(body);
+                            }
+                        }
+                    }
+                    if !moved {
+                        if must_drop {
+                            new_e = box_drop(new_e);
+                        }
+                        new_exprs.push(new_e);
+                    }
                 }
             }
         }
 
+        b.items.clear();
+        if new_exprs.len() == 1 {
+            b.items.push(BlockItem::Expr(new_exprs.remove(0)));
+        } else {
+            b.items.push(BlockItem::Expr(Box::new(Expr{ty: b.ty,
+                                                       u:  Uxpr::Block{ty:   b.ty,
+                                                                       body: new_exprs}})));
+        }
+        
         self.locals.pop_rib();
     }
 
@@ -139,18 +182,18 @@ impl<'a> Flatten<'a>
             Uxpr::Unop{op, e} => {
                 match op {
                     Unop::Neg => {
-                        let mut new_e = make_void();
+                        let mut new_e = box_void();
                         swap(e, &mut new_e);
 
-                        new_e = make_binop(new_e.ty, Binop::Sub, make_intlit(0, e.ty.unwrap()), new_e);
+                        new_e = box_binop(new_e.ty, Binop::Sub, box_intlit(0, e.ty.unwrap()), new_e);
                         self.flatten_expr(&mut new_e);
                         replacement_expr = Some(*new_e);
                     }
                     Unop::BitNot => {
-                        let mut new_e = make_void();
+                        let mut new_e = box_void();
                         swap(e, &mut new_e);
 
-                        new_e = make_binop(new_e.ty, Binop::BitXor, new_e, make_intlit(-1, e.ty.unwrap()));
+                        new_e = box_binop(new_e.ty, Binop::BitXor, new_e, box_intlit(-1, e.ty.unwrap()));
                         self.flatten_expr(&mut new_e);
                         replacement_expr = Some(*new_e);
                     }
@@ -170,17 +213,17 @@ impl<'a> Flatten<'a>
                             match op {
                                 Intrin::Binop(op) => {
                                     assert!(actuals.len() == 2);
-                                    let mut lhs = make_void();
+                                    let mut lhs = box_void();
                                     swap(&mut actuals[0], &mut lhs);
-                                    let mut rhs = make_void();
+                                    let mut rhs = box_void();
                                     swap(&mut actuals[1], &mut rhs);
-                                    replacement_expr = Some(*make_binop(*ret, op, lhs, rhs));
+                                    replacement_expr = Some(*box_binop(*ret, op, lhs, rhs));
                                 }
                                 Intrin::Unop(op) => {
                                     assert!(actuals.len() == 1);
-                                    let mut e = make_void();
+                                    let mut e = box_void();
                                     swap(&mut actuals[0], &mut e);
-                                    replacement_expr = Some(*make_unop(*ret, op, e));
+                                    replacement_expr = Some(*box_unop(*ret, op, e));
                                 }
                             }
                             break;
@@ -205,7 +248,7 @@ impl<'a> Flatten<'a>
                 self.flatten_expr(rhs);
                 match lhs {
                     LValue::Id(id) => {
-                        let mut new_rhs = make_void();
+                        let mut new_rhs = box_void();
                         swap(rhs, &mut new_rhs);
 
                         match self.lookup(&id) {
@@ -225,7 +268,7 @@ impl<'a> Flatten<'a>
 
                 }
             }
-            Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block{..} |
+            Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block{..} | Uxpr::Drop(_) |
             Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
                 panic!("Can't happen - introduced later");
             }
