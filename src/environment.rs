@@ -1,5 +1,7 @@
 use ast::{Id, Type};
+use std::clone::Clone;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 pub type Signature = (Vec<Type>, Option<Type>);
@@ -7,11 +9,11 @@ pub type Signature = (Vec<Type>, Option<Type>);
 pub type Intrinsic = Vec<Rc<Signature>>;
 
 #[derive(Clone)]
-pub enum Binding {
+pub enum Binding<T : Clone> {
     GlobalVar(bool, Type),
     GlobalFun(Rc<Signature>),
     Intrinsic(Rc<Intrinsic>),
-    Local(Type),
+    Local(T),
     Label
 }
 
@@ -24,14 +26,16 @@ pub struct LocalItem {
 }
 */
 
-pub struct IntrinsicEnv
+pub struct IntrinsicEnv<T : Clone>
 {
-    intrinsics: HashMap<String, Rc<Intrinsic>>
+    intrinsics:      HashMap<String, Rc<Intrinsic>>,
+    binding_payload: PhantomData<T>
 }
 
-impl IntrinsicEnv
+impl<T> IntrinsicEnv<T>
+    where T : Clone
 {
-    pub fn new() -> IntrinsicEnv {
+    pub fn new() -> IntrinsicEnv<T> {
         let mut intrinsics = HashMap::new();
 
         let i_to_i = Rc::new(vec![Rc::new((vec![Type::I32], Some(Type::I32))),
@@ -59,10 +63,13 @@ impl IntrinsicEnv
 
         intrinsics.insert("copysign".to_string(), ff_to_f.clone());
 
-        IntrinsicEnv { intrinsics }
+        IntrinsicEnv {
+            intrinsics,
+            binding_payload: PhantomData
+        }
     }
 
-    pub fn lookup(&self, name:&Id) -> Option<Binding> {
+    pub fn lookup(&self, name:&Id) -> Option<Binding<T>> {
         match self.intrinsics.get(&name.name) {
             Some(b) => Some(Binding::Intrinsic(b.clone())),
             None    => None
@@ -70,14 +77,15 @@ impl IntrinsicEnv
     }
 }
 
-pub struct ToplevelEnv
+pub struct ToplevelEnv<T : Clone>
 {
-    env: HashMap<String, Binding>
+    env: HashMap<String, Binding<T>>
 }
 
-impl ToplevelEnv
+impl<T> ToplevelEnv<T>
+    where T : Clone
 {
-    pub fn new() -> ToplevelEnv {
+    pub fn new() -> ToplevelEnv<T> {
         ToplevelEnv { env: HashMap::new() }
     }
 
@@ -85,7 +93,7 @@ impl ToplevelEnv
         self.env.contains_key(&name.name)
     }
 
-    pub fn lookup(&self, name:&Id) -> Option<Binding> {
+    pub fn lookup(&self, name:&Id) -> Option<Binding<T>> {
         match self.env.get(&name.name) {
             Some(b) => Some(b.clone()),
             None    => None
@@ -101,15 +109,16 @@ impl ToplevelEnv
     }
 }
 
-pub struct LocalEnv
+pub struct LocalEnv<T : Clone>
 {
     // The Binding is a Label or a Local
-    locals: Vec<Vec<(Id, Binding)>>
+    locals: Vec<Vec<(Id, Binding<T>)>>
 }
 
-impl LocalEnv
+impl<T> LocalEnv<T>
+    where T : Clone
 {
-    pub fn new() -> LocalEnv {
+    pub fn new() -> LocalEnv<T> {
         LocalEnv {
             locals: vec![],
         }
@@ -123,9 +132,9 @@ impl LocalEnv
         self.locals.pop().unwrap();
     }
 
-    pub fn add_param(&mut self, param_name: &Id, param_type: Type) {
+    pub fn add_param(&mut self, param_name: &Id, param_attrib: T) {
         let last = self.locals.len()-1;
-        self.locals[last].push((param_name.clone(), Binding::Local(param_type)));
+        self.locals[last].push((param_name.clone(), Binding::Local(param_attrib)));
     }
 
 /*
@@ -140,9 +149,9 @@ impl LocalEnv
     }
      */
     
-    pub fn add_local(&mut self, local_name: &Id, local_type: Type) {
+    pub fn add_local(&mut self, local_name: &Id, local_attrib: T) {
         let last = self.locals.len()-1;
-        self.locals[last].push((local_name.clone(), Binding::Local(local_type)));
+        self.locals[last].push((local_name.clone(), Binding::Local(local_attrib)));
     }
 
     pub fn add_label(&mut self, label: &Id) {
@@ -150,7 +159,7 @@ impl LocalEnv
         self.locals[last].push((label.clone(), Binding::Label));
     }
 
-    pub fn lookup(&self, id:&Id) -> Option<Binding> {
+    pub fn lookup(&self, id:&Id) -> Option<Binding<T>> {
         let mut ribno = self.locals.len() as i32 - 1;
         while ribno >= 0 {
             let rib = &self.locals[ribno as usize];

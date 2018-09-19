@@ -23,15 +23,16 @@ use ast::*;
 use environment::*;
 use std::collections::HashSet;
 
-struct Check {
-    intrinsics: IntrinsicEnv,
-    toplevel:   ToplevelEnv,
-    locals:     LocalEnv
-}
-
 pub fn check(p:&mut Module) {
     let mut chk = Check::new();
     chk.check_module(p);
+}
+
+struct Check
+{
+    intrinsics: IntrinsicEnv<Type>,
+    toplevel:   ToplevelEnv<Type>,
+    locals:     LocalEnv<Type>
 }
 
 impl Check
@@ -44,7 +45,7 @@ impl Check
         }
     }
 
-    fn lookup(&mut self, id:&Id) -> Option<Binding> {
+    fn lookup(&mut self, id:&Id) -> Option<Binding<Type>> {
         if let Some(b) = self.locals.lookup(id) {
             Some(b)
         } else if let Some(b) = self.toplevel.lookup(id) {
@@ -91,10 +92,7 @@ impl Check
         if self.toplevel.probe(&f.name) {
             panic!("Multiply defined top-level name {}", f.name);
         }
-        let mut param_types = vec![];
-        for (_,ty) in &f.formals {
-            param_types.push(*ty);
-        }
+        let param_types = (&f.formals).into_iter().map(|(_,ty)| *ty).collect();
         self.toplevel.insert_function(&f.name, param_types, f.retn);
     }
     
@@ -121,6 +119,8 @@ impl Check
     }
 
     fn check_block(&mut self, b:&mut Block) {
+        self.locals.push_rib();
+
         let mut last_type = None;
         for item in &mut b.items {
             match item {
@@ -139,6 +139,8 @@ impl Check
             }
         }
         b.ty = last_type;
+
+        self.locals.pop_rib();
     }
 
     fn check_const_expr(&mut self, e:&mut Expr) {
@@ -338,51 +340,4 @@ impl Check
             }
         }
     }
-}
-
-fn match_parameters(formals:&Vec<Type>, actuals:&Vec<Box<Expr>>) -> bool {
-    if actuals.len() != formals.len() {
-        return false;
-    }
-    for i in 0..actuals.len() {
-        if !is_same_type(Some(formals[i]), actuals[i].ty) {
-            return false;
-        }
-    }
-    true
-}
-
-fn is_same_type(t1:Option<Type>, t2:Option<Type>) -> bool {
-    match (t1, t2) {
-        (None, None) => true,
-        (None, _)    => false,
-        (_, None)    => false,
-        (Some(t1), Some(t2)) => t1 == t2
-    }
-}
-
-fn is_int_type(t1:Option<Type>) -> bool {
-    match t1 {
-        Some(Type::I32) | Some(Type::I64) => true,
-        _ => false
-    }
-}
-
-fn is_i32_type(t1:Option<Type>) -> bool {
-    is_same_type(t1, Some(Type::I32))
-}
-
-fn is_float_type(t1:Option<Type>) -> bool {
-    match t1 {
-        Some(Type::F32) | Some(Type::F64) => true,
-        _ => false
-    }
-}
-
-fn is_num_type(t1:Option<Type>) -> bool {
-    is_int_type(t1) || is_float_type(t1)
-}
-
-fn is_value_type(t1:Option<Type>) -> bool {
-    !t1.is_none()
 }

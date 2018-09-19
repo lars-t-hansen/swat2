@@ -202,7 +202,7 @@ pub enum Number {
     F64(f64)
 }
 
-// Common utilities for AST construction and rewriting
+// Utilities for AST construction and rewriting
 
 pub fn make_void() -> Box<Expr> {
     Box::new(Expr{ ty: None, u: Uxpr::Void })
@@ -238,4 +238,53 @@ pub fn make_intlit(n:i64, ty:Type) -> Box<Expr> {
         Type::F64 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit(Number::F64(n as f64)) }),
         _         => panic!("Can't happen")
     }
+}
+
+// Type utilities
+
+pub fn match_parameters(formals:&Vec<Type>, actuals:&Vec<Box<Expr>>) -> bool {
+    if actuals.len() != formals.len() {
+        return false;
+    }
+    for i in 0..actuals.len() {
+        if !is_same_type(Some(formals[i]), actuals[i].ty) {
+            return false;
+        }
+    }
+    true
+}
+
+pub fn is_same_type(t1:Option<Type>, t2:Option<Type>) -> bool {
+    match (t1, t2) {
+        (None, None) => true,
+        (None, _)    => false,
+        (_, None)    => false,
+        (Some(t1), Some(t2)) => t1 == t2
+    }
+}
+
+pub fn is_int_type(t1:Option<Type>) -> bool {
+    match t1 {
+        Some(Type::I32) | Some(Type::I64) => true,
+        _ => false
+    }
+}
+
+pub fn is_i32_type(t1:Option<Type>) -> bool {
+    is_same_type(t1, Some(Type::I32))
+}
+
+pub fn is_float_type(t1:Option<Type>) -> bool {
+    match t1 {
+        Some(Type::F32) | Some(Type::F64) => true,
+        _ => false
+    }
+}
+
+pub fn is_num_type(t1:Option<Type>) -> bool {
+    is_int_type(t1) || is_float_type(t1)
+}
+
+pub fn is_value_type(t1:Option<Type>) -> bool {
+    !t1.is_none()
 }
