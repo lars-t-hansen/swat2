@@ -1,3 +1,0 @@
-module Id {
-   export var x : ty = expr
-}

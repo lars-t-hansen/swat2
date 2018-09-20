@@ -1,6 +1,7 @@
 module FibMod
 {
-    pub var x: i32 = 2;
+    var x: i32 = 2;
+
     pub fn fib(n: i32) -> i32 {  
         if n < x { n } else { fib(n-1) + fib(n-2) }
     }
