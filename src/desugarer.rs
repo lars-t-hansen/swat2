@@ -7,13 +7,16 @@
 // - `loop` is rewritten as iterate
 // - (bitnot x) is rewritten as (xor x -1)
 // - (neg x) is rewritten as (- 0 x)
-// - (not x) is rewritten as (eqz x),
+// - (not x) is rewritten as (eqz x)
 //
+// - TODO: calls to intrinsics have been rewritten as intrinsic ops (some of
+//   them have direct mappings, some require expansion), note this requires
+//   maintaining the environment.
 // - TODO: (ne x y) is rewritten as (eqz (ref.eq x y)) if x and y are pointers
 // - TODO: rewrite x % y as something else if x and y are floats
 //
-// The desugarer can insert new blocks and let bindings, it just can't leave
-// behind new instances of any of the forms it is trying to remove.
+// The desugarer can insert new blocks and variable bindings, it just can't
+// leave behind new instances of any of the forms it is trying to remove.
 
 use ast::*;
 use context::Context;

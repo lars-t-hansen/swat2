@@ -7,7 +7,6 @@
 //  - all functions carry information about defined locals
 //  - all variable references have become get_local/set_local/get_global/set_global
 //    operating on alpha-converted names as appropriate
-//  - calls to intrinsics have been rewritten as intrinsic ops
 //  - explicit drops have been inserted when needed
 //  - redundant blocks have been flattened
 //  - resulting Block nodes all have exactly one expression and no let bindings

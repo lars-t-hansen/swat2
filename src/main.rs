@@ -8,7 +8,6 @@ mod desugarer;
 mod environment;
 mod flattener;
 mod typechecker;
-//mod xform;
 mod waster;
 
 use std::env;
@@ -25,6 +24,7 @@ fn main()
         if !infilename.ends_with(".swat") {
             continue;
         }
+        let basename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned();
         numfiles += 1;
 
         let mut source = String::new();
@@ -33,17 +33,17 @@ fn main()
             infile.read_to_string(&mut source).expect(&format!("{}: failed to read", &infilename));
         }
 
-        let mut prog0 = grammar::ProgramParser::new()
+        let mut prog = grammar::ProgramParser::new()
             .parse(&source)
             .unwrap();
 
-        let wastfilename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned() + ".wast";
+        let wastfilename = basename.clone() + ".wast";
         let mut wastfile = File::create(&wastfilename).expect(&format!("{}: could not create", &wastfilename));
 
-        let jsfilename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned() + ".js";
+        let jsfilename = basename + ".js";
         let mut jsfile = File::create(&jsfilename).expect(&format!("{}: could not create", &jsfilename));
 
-        for item in &mut prog0.items {
+        for item in &mut prog.items {
             match item {
                 ast::TopItem::Mod(m) => {
                     let mut cx = context::Context::new();
@@ -57,25 +57,6 @@ fn main()
                 }
             }
         }
-
-/*
-        let prog1 = xform::xform(prog0);
-
-        let mut e = Emitter::new();
-        prog1.gen(&mut e);
-
-        {
-            let wastfilename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned() + ".wast";
-            let mut wastfile = File::create(&wastfilename).expect(&format!("{}: could not create", &wastfilename));
-            wastfile.write(e.get_wast().as_bytes()).expect(&format!("{}: failed to write", &wastfilename));
-        }
-
-        {
-            let jsfilename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned() + ".js";
-            let mut jsfile = File::create(&jsfilename).expect(&format!("{}: could not create", &jsfilename));
-            jsfile.write(e.get_js().as_bytes()).expect(&format!("{}: failed to write", &jsfilename));
-        }
-*/
     }
 
     if numfiles == 0 {
