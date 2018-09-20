@@ -19,7 +19,14 @@ fn fib() {
 fn oddeven() {
     compile_file("test/oddeven.swat");
     run_wast(&read_text_file("test/oddeven.wast"),
-             "assertEq(TEST.exports.odd(5), 1); assertEq(TEST.exports.even(5), 0);");                
+             "assertEq(TEST.exports.odd(5), 1); assertEq(TEST.exports.even(5), 0);");
+}
+
+#[test]
+fn locals() {
+    compile_file("test/locals.swat");
+    run_wast(&read_text_file("test/locals.wast"),
+             "assertEq(TEST.exports.myfun(5), 8);");
 }
 
 // Utility code.

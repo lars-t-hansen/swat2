@@ -1,8 +1,9 @@
 module Locals
 {
     pub fn myfun(n: i32) -> i32 {  
-        let k: i32 = 0;
-        let m: i32 = 1;
-        k + m
+        let k: i32 = n;
+        let m: i32 = 3;
+        let res: i32 = k + m;
+        res
     }
 }
