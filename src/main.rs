@@ -1,3 +1,5 @@
+// -*- fill-column: 80 -*-
+
 #[macro_use] extern crate lalrpop_util;
 
 lalrpop_mod!(pub grammar);

@@ -8,10 +8,10 @@
 // - (bitnot x) is rewritten as (xor x -1)
 // - (neg x) is rewritten as (- 0 x)
 // - (not x) is rewritten as (eqz x)
-//
-// - TODO: calls to intrinsics have been rewritten as intrinsic ops (some of
+// - calls to intrinsics have been rewritten as intrinsic ops (some of
 //   them have direct mappings, some require expansion), note this requires
 //   maintaining the environment.
+//
 // - TODO: (ne x y) is rewritten as (eqz (ref.eq x y)) if x and y are pointers
 // - TODO: rewrite x % y as something else if x and y are floats
 //
@@ -20,6 +20,7 @@
 
 use ast::*;
 use context::Context;
+use environment::*;
 use std::mem::swap;
 
 pub fn desugar(context:&mut Context, m:&mut Module) {
@@ -28,43 +29,59 @@ pub fn desugar(context:&mut Context, m:&mut Module) {
 }
 
 struct Desugarer<'a> {
-    context: &'a mut Context
+    context: &'a mut Context,
+
+    // The carried Type value is not used here, we use environments simply to
+    // discover whether something is an intrinsic or not.
+    env:     Env<Type>
 }
 
 impl<'a> Desugarer<'a>
 {
     fn new(context: &'a mut Context) -> Desugarer<'a> {
         Desugarer {
-            context
+            context,
+            env: Env::new()
         }
     }
 
     fn desugar_module(&mut self, m:&mut Module) {
+        (&m.items).into_iter().for_each(|item| self.env.define_toplevel(item));
         for item in &mut m.items {
             match item {
-                ModItem::Var(_v) => {
-                    // const exprs don't yet have anything desugarable
-                }
-                ModItem::Fn(f)  => {
-                    if !f.imported {
-                        self.desugar_block(&mut f.body);
-                    }
-                }
+                ModItem::Var(g) => { self.desugar_global(g) }
+                ModItem::Fn(f)  => { self.desugar_function(f) }
             }
         }
     }
 
+    fn desugar_global(&mut self, g:&mut GlobalVar) {
+        self.desugar_expr(&mut g.init);
+    }
+
+    fn desugar_function(&mut self, f:&mut FnDef) {
+        if !f.imported {
+            self.env.locals.push_rib();
+            (&f.formals).into_iter().for_each(|(name,ty)| self.env.locals.add_param(name, *ty));
+            self.desugar_block(&mut f.body);
+            self.env.locals.pop_rib();
+        }
+    }
+
     fn desugar_block(&mut self, b:&mut Block) {
+        self.env.locals.push_rib();
         for item in &mut b.items {
             match item {
                 BlockItem::Let(l) => {
                     self.desugar_expr(&mut l.init);
+                    self.env.locals.add_local(&l.name, l.ty);
                 }
                 BlockItem::Expr(e) => {
                     self.desugar_expr(e);
                 }
             }
         }
+        self.env.locals.pop_rib();
     }
 
     fn desugar_expr(&mut self, expr:&mut Expr) {
@@ -105,7 +122,9 @@ impl<'a> Desugarer<'a>
                 self.desugar_expr(&mut new_expr);
                 replacement_expr = Some(new_expr);
             }
-            Uxpr::Iterate{body, ..} => {
+            Uxpr::Iterate{body, break_label, continue_label} => {
+                self.env.locals.add_label(&break_label);
+                self.env.locals.add_label(&continue_label);
                 self.desugar_block(body);
             }
             Uxpr::Break{..} => { }
@@ -146,9 +165,33 @@ impl<'a> Desugarer<'a>
                     }
                 }
             }
-            Uxpr::Call{actuals, ..} => {
+            Uxpr::Call{name, actuals} => {
                 for actual in &mut *actuals {
                     self.desugar_expr(actual);
+                }
+                if let Binding::Intrinsic(sigs, op) = self.env.lookup(&name).unwrap() {
+                    for sig in &*sigs {
+                        let (formals, ret) = &**sig;
+                        if match_parameters(&formals, actuals) {
+                            match op {
+                                Intrin::Binop(op) => {
+                                    assert!(actuals.len() == 2);
+                                    let mut lhs = box_void();
+                                    swap(&mut actuals[0], &mut lhs);
+                                    let mut rhs = box_void();
+                                    swap(&mut actuals[1], &mut rhs);
+                                    replacement_expr = Some(box_binop(*ret, op, lhs, rhs));
+                                }
+                                Intrin::Unop(op) => {
+                                    assert!(actuals.len() == 1);
+                                    let mut e = box_void();
+                                    swap(&mut actuals[0], &mut e);
+                                    replacement_expr = Some(box_unop(*ret, op, e));
+                                }
+                            }
+                            break;
+                        }
+                    }
                 }
             }
             Uxpr::Id(_id) => { }

@@ -1,6 +1,6 @@
 // -*- fill-column: 80 -*-
 
-use ast::{Binop, Id, Type, Unop};
+use ast::{Binop, FnDef, GlobalVar, Id, ModItem, Type, Unop};
 use std::clone::Clone;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -199,6 +199,24 @@ impl<T> Env<T>
             Some(b)
         } else {
             None
+        }
+    }
+
+    pub fn define_global(&mut self, g:&GlobalVar) {
+        assert!(!self.toplevel.probe(&g.name));
+        self.toplevel.insert_global(&g.name, g.mutable, g.ty);
+    }
+
+    pub fn define_function(&mut self, f:&FnDef) {
+        assert!(!self.toplevel.probe(&f.name));
+        let param_types = (&f.formals).into_iter().map(|(_,ty)| *ty).collect();
+        self.toplevel.insert_function(&f.name, param_types, f.retn);
+    }
+
+    pub fn define_toplevel(&mut self, item:&ModItem) {
+        match item {
+            ModItem::Var(v) => { self.define_global(v) }
+            ModItem::Fn(f)  => { self.define_function(f); }
         }
     }
 }

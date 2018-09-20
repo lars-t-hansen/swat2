@@ -1,23 +1,25 @@
-// The type checker validates the input program and rewrites it
-// slightly in place.
+// -*- fill-column: 80 -*-
+//
+// The type checker validates the input program and annotates the tree but
+// currently does not rewrite it at all.
 //
 // It checks that:
 // - no global names are multiply defined
 // - no parameter names are multiply defined
 // - globals are initialized by constant expressions
-// - expressions have appropriate types for their context, and types
-//   are commensurable where they meet
+// - expressions have appropriate types for their context, and types are
+//   commensurable where they meet
 // - every identifier references an appropriate bound name
 // - every operator is applied to appropriate types
 // - every call references a function or intrinsic
-// - calls pass the right number of arguments and receive the right
-//   number of results (0 or 1, for now)
+// - calls pass the right number of arguments and receive the right number of
+//   results (0 or 1, for now)
 //
-// It computes types for all expr and block nodes and records those in
-// the nodes.
+// It computes types for all expr and block nodes and records those in the
+// nodes.
 //
-// In the future, it may also insert explicit casts where they are
-// implicit, rewriting the expression tree as required.
+// In the future, it may also insert explicit casts where they are implicit,
+// rewriting the expression tree as required.
 
 use ast::*;
 use environment::*;
@@ -60,7 +62,7 @@ impl Check
         if self.env.toplevel.probe(&g.name) {
             panic!("Multiply defined top-level name {}", g.name);
         }
-        self.env.toplevel.insert_global(&g.name, g.mutable, g.ty);
+        self.env.define_global(g);
     }
 
     fn check_global(&mut self, g:&mut GlobalVar) {
@@ -76,8 +78,7 @@ impl Check
         if self.env.toplevel.probe(&f.name) {
             panic!("Multiply defined top-level name {}", f.name);
         }
-        let param_types = (&f.formals).into_iter().map(|(_,ty)| *ty).collect();
-        self.env.toplevel.insert_function(&f.name, param_types, f.retn);
+        self.env.define_function(f);
     }
     
     fn check_function(&mut self, f:&mut FnDef) {

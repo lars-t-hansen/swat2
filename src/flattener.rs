@@ -3,13 +3,14 @@
 // The flattener lowers the intermediate wasm format to something very
 // close to the final format.  On output:
 //
-//  - all lets are removed, locals (though not parameters) are alpha-converted
+//  - all `let`s are removed, and locals (though not yet parameters) are
+//    alpha-converted
 //  - all functions carry information about defined locals
-//  - all variable references have become get_local/set_local/get_global/set_global
-//    operating on alpha-converted names as appropriate
+//  - all variable references have become get_local/set_local/get_global/
+//    set_global operating on alpha-converted names as appropriate
 //  - explicit drops have been inserted when needed
 //  - redundant blocks have been flattened
-//  - resulting Block nodes all have exactly one expression and no let bindings
+//  - Block nodes all have exactly one expression and no let bindings
 //  - void expressions have been removed, replaced by empty Block expressions
 
 use ast::*;
@@ -46,12 +47,7 @@ impl<'a> Flatten<'a>
     }
 
     fn flatten_module(&mut self, m:&mut Module) {
-        for item in &mut m.items {
-            match item {
-                ModItem::Var(v) => { self.define_global(v) }
-                ModItem::Fn(f)  => { self.define_function(f); }
-            }
-        }
+        (&m.items).into_iter().for_each(|item| self.env.define_toplevel(item));
         for item in &mut m.items {
             match item {
                 ModItem::Var(v) => { self.flatten_global(v) }
@@ -60,17 +56,8 @@ impl<'a> Flatten<'a>
         }
     }
 
-    fn define_global(&mut self, g:&mut GlobalVar) {
-        self.env.toplevel.insert_global(&g.name, g.mutable, g.ty);
-    }
-
     fn flatten_global(&mut self, g:&mut GlobalVar) {
         self.flatten_expr(&mut g.init);
-    }
-
-    fn define_function(&mut self, f:&mut FnDef) {
-        let param_types = (&f.formals).into_iter().map(|(_,ty)| *ty).collect();
-        self.env.toplevel.insert_function(&f.name, param_types, f.retn);
     }
 
     fn flatten_function(&mut self, f:&mut FnDef) {
@@ -82,7 +69,6 @@ impl<'a> Flatten<'a>
 
             self.env.locals.pop_rib();
         }
-
         f.locals = Some(self.localdefs.split_off(0));
     }
 
@@ -160,7 +146,9 @@ impl<'a> Flatten<'a>
                 self.flatten_block(consequent);
                 self.flatten_block(alternate);
             }
-            Uxpr::Iterate{body, ..} => {
+            Uxpr::Iterate{body, break_label, continue_label} => {
+                self.env.locals.add_label(&break_label);
+                self.env.locals.add_label(&continue_label);
                 self.flatten_block(body);
             }
             Uxpr::Break{..} => { }
@@ -171,33 +159,9 @@ impl<'a> Flatten<'a>
             Uxpr::Unop{e, ..} => {
                 self.flatten_expr(e);
             }
-            Uxpr::Call{name, actuals} => {
+            Uxpr::Call{actuals, ..} => {
                 for actual in &mut *actuals {
                     self.flatten_expr(actual);
-                }
-                if let Binding::Intrinsic(sigs, op) = self.env.lookup(&name).unwrap() {
-                    for sig in &*sigs {
-                        let (formals, ret) = &**sig;
-                        if match_parameters(&formals, actuals) {
-                            match op {
-                                Intrin::Binop(op) => {
-                                    assert!(actuals.len() == 2);
-                                    let mut lhs = box_void();
-                                    swap(&mut actuals[0], &mut lhs);
-                                    let mut rhs = box_void();
-                                    swap(&mut actuals[1], &mut rhs);
-                                    replacement_expr = Some(*box_binop(*ret, op, lhs, rhs));
-                                }
-                                Intrin::Unop(op) => {
-                                    assert!(actuals.len() == 1);
-                                    let mut e = box_void();
-                                    swap(&mut actuals[0], &mut e);
-                                    replacement_expr = Some(*box_unop(*ret, op, e));
-                                }
-                            }
-                            break;
-                        }
-                    }
                 }
             }
             Uxpr::Id(id) => {
