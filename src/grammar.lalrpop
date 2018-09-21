@@ -88,21 +88,94 @@ BlockItem: BlockItem = {
 }
 
 Expr: Box<Expr> = {
-    <lhs:Id> "=" <rhs:Expr0> => Box::new(Expr{ty:None, u:Uxpr::Assign{lhs:LValue::Id(lhs), rhs}}),
-    Expr0
+    AssignExpr
 }
 
-Expr0: Box<Expr> = {
-    <lhs:Expr0> <op:Relop> <rhs:Expr1> => box_binop(None, op, lhs, rhs),
-    Expr1
+AssignExpr: Box<Expr> = {
+    <lhs:Id> "=" <rhs:RelationalExpr> => Box::new(Expr{ty:None, u:Uxpr::Assign{lhs:LValue::Id(lhs), rhs}}),
+    RelationalExpr
 }
 
-Expr1: Box<Expr> = {
-    <lhs:Expr1> <op:Addop> <rhs:Expr2> => box_binop(None, op, lhs, rhs),
-    Expr2
+RelationalExpr: Box<Expr> = {
+    <lhs:RelationalExpr> <op:Relop> <rhs:BitOrExpr> => box_binop(None, op, lhs, rhs),
+    BitOrExpr
 }
 
-Expr2: Box<Expr> = {
+Relop: Binop = {
+    "<"   => Binop::Less,
+    "<="  => Binop::LessOrEqual,
+    ">"   => Binop::Greater,
+    ">="  => Binop::GreaterOrEqual,
+    "<u"  => Binop::ULess,
+    "<=u" => Binop::ULessOrEqual,
+    ">u"  => Binop::UGreater,
+    ">=u" => Binop::UGreaterOrEqual,
+    "=="  => Binop::Equal,
+    "!="  => Binop::NotEqual
+}
+
+BitOrExpr: Box<Expr> = {
+    <lhs:BitOrExpr> "|" <rhs:BitXorExpr> => box_binop(None, Binop::BitOr, lhs, rhs),
+    BitXorExpr
+}
+
+BitXorExpr: Box<Expr> = {
+    <lhs:BitXorExpr> "^" <rhs:BitAndExpr> => box_binop(None, Binop::BitXor, lhs, rhs),
+    BitAndExpr
+}
+
+BitAndExpr: Box<Expr> = {
+    <lhs:BitAndExpr> "&" <rhs:BitShiftExpr> => box_binop(None, Binop::BitAnd, lhs, rhs),
+    BitShiftExpr
+}
+
+BitShiftExpr: Box<Expr> = {
+    <lhs:BitShiftExpr> <op:Shiftop> <rhs:AddExpr> => box_binop(None, op, lhs, rhs),
+    AddExpr
+}
+
+Shiftop: Binop = {
+    "<<" => Binop::ShiftLeft,
+    ">>" => Binop::ShiftRight,
+    ">>u" => Binop::UShiftRight
+}
+
+AddExpr: Box<Expr> = {
+    <lhs:AddExpr> <op:Addop> <rhs:MulExpr> => box_binop(None, op, lhs, rhs),
+    MulExpr
+}
+
+Addop: Binop = {
+    "+" => Binop::Add,
+    "-" => Binop::Sub
+}
+
+MulExpr: Box<Expr> = {
+    <lhs:MulExpr> <op:Mulop> <rhs:CastExpr> => box_binop(None, op, lhs, rhs),
+    CastExpr
+}
+
+Mulop: Binop = {
+    "*" => Binop::Mul,
+    "/" => Binop::Div,
+    "%" => Binop::Rem,
+    "/u" => Binop::UDiv,
+    "%u" => Binop::URem
+}
+
+CastExpr: Box<Expr> = {
+    <expr:CastExpr> "as" <ty:Type> => box_cast(expr, ty),
+    UnaryExpr
+}
+
+UnaryExpr: Box<Expr> = {
+    "!" <e:UnaryExpr> => box_unop(None, Unop::Not, e),
+    "~" <e:UnaryExpr> => box_unop(None, Unop::BitNot, e),
+    "-" <e:UnaryExpr> => box_unop(None, Unop::Neg, e),
+    PrimaryExpr
+}
+
+PrimaryExpr: Box<Expr> = {
     "if" <test:Expr> <consequent:Block> "else" <alternate:Block> => {
         box_if(test, consequent, alternate)
     },
@@ -184,32 +257,6 @@ Actuals: Vec<Box<Expr>> = {
         }
 }
     
-Relop: Binop = {
-    "<"   => Binop::Less,
-    "<="  => Binop::LessOrEqual,
-    ">"   => Binop::Greater,
-    ">="  => Binop::GreaterOrEqual,
-    "<u"  => Binop::ULess,
-    "<=u" => Binop::ULessOrEqual,
-    ">u"  => Binop::UGreater,
-    ">=u" => Binop::UGreaterOrEqual,
-    "=="  => Binop::Equal,
-    "!="  => Binop::NotEqual
-}
-
-Addop: Binop = {
-    "+" => Binop::Add,
-    "-" => Binop::Sub
-}
-
-Mulop: Binop = {
-    "*" => Binop::Mul,
-    "/" => Binop::Div,
-    "%" => Binop::Rem,
-    "/u" => Binop::UDiv,
-    "%u" => Binop::URem
-}
-
 // Rough lexical analysis.  The JSItem does not work, nor will string literals
 // work.  We will need to have a custom lexer.
 

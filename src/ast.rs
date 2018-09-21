@@ -181,6 +181,7 @@ pub enum Uxpr {
     Unop{op:Unop, e:Box<Expr>},
     Assign{lhs:LValue, rhs:Box<Expr>},
     Call{name:Id, actuals:Vec<Box<Expr>>},
+//    Cast{e:Box<Expr>, ty:Type},
 
     // Introduced by desugaring.
     Iterate{break_label:Id, continue_label:Id, body:Box<Block>},
@@ -219,6 +220,12 @@ pub fn box_unop(ty:Option<Type>, op:Unop, e:Box<Expr>) -> Box<Expr> {
 
 pub fn box_binop(ty:Option<Type>, op:Binop, lhs:Box<Expr>, rhs:Box<Expr>) -> Box<Expr> {
     Box::new(Expr{ ty, u: Uxpr::Binop{ op, lhs, rhs } })
+}
+
+pub fn box_cast(e:Box<Expr>, ty:Type) -> Box<Expr> {
+    // FIXME
+    //    Box::new(Expr{ ty: None, u: Uxpr::Cast{ e, ty } })
+    e
 }
 
 pub fn box_block(exprs:Vec<Box<Expr>>) -> Box<Block> {

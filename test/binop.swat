@@ -1,0 +1,152 @@
+module Binops
+{
+    pub fn add32(x:i32, y:i32) -> i32 {
+        x + y
+    }
+    pub fn sub32(x:i32, y:i32) -> i32 {
+        x - y
+    }
+    pub fn mul32(x:i32, y:i32) -> i32 {
+        x * y
+    }
+    pub fn div32(x:i32, y:i32) -> i32 {
+        x / y
+    }
+    pub fn udiv32(x:i32, y:i32) -> i32 {
+        x /u y
+    }
+    pub fn rem32(x:i32, y:i32) -> i32 {
+        x % y
+    }
+    pub fn urem32(x:i32, y:i32) -> i32 {
+        x %u y
+    }
+    pub fn shl32(x:i32, y:i32) -> i32 {
+        x << y
+    }
+    pub fn shr32(x:i32, y:i32) -> i32 {
+        x >> y
+    }
+    pub fn ushr32(x:i32, y:i32) -> i32 {
+        x >>u y
+    }
+    pub fn and32(x:i32, y:i32) -> i32 {
+        x & y
+    }
+    pub fn or32(x:i32, y:i32) -> i32 {
+        x | y
+    }
+    pub fn xor32(x:i32, y:i32) -> i32 {
+        x ^ y
+    }
+    pub fn less32(x:i32, y:i32) -> i32 {
+        x < y
+    }
+    pub fn less_or_equal32(x:i32, y:i32) -> i32 {
+        x <= y
+    }
+    pub fn greater32(x:i32, y:i32) -> i32 {
+        x > y
+    }
+    pub fn greater_or_equal32(x:i32, y:i32) -> i32 {
+        x >= y
+    }
+    pub fn equal32(x:i32, y:i32) -> i32 {
+        x == y
+    }
+    pub fn not_equal32(x:i32, y:i32) -> i32 {
+        x != y
+    }
+    pub fn uless32(x:i32, y:i32) -> i32 {
+        x <u y
+    }
+    pub fn uless_or_equal32(x:i32, y:i32) -> i32 {
+        x <=u y
+    }
+    pub fn ugreater32(x:i32, y:i32) -> i32 {
+        x >u y
+    }
+    pub fn ugreater_or_equal32(x:i32, y:i32) -> i32 {
+        x >=u y
+    }
+    pub fn rotl32(x:i32, y:i32) -> i32 {
+        rotl(x, y)
+    }
+    pub fn rotr32(x:i32, y:i32) -> i32 {
+        rotr(x, y)
+    }
+
+    pub fn fadd32(x:f32, y:f32) -> f32 {
+        x + y
+    }
+    pub fn fsub32(x:f32, y:f32) -> f32 {
+        x - y
+    }
+    pub fn fmul32(x:f32, y:f32) -> f32 {
+        x * y
+    }
+    pub fn fdiv32(x:f32, y:f32) -> f32 {
+        x / y
+    }
+    pub fn FIXME_SHOULD_TEST_FMOD_frem32(x:f32, y:f32) -> f32 {
+        x
+    }
+    pub fn fless32(x:f32, y:f32) -> f32 {
+        x < y
+    }
+    pub fn fless_or_equal32(x:f32, y:f32) -> f32 {
+        x <= y
+    }
+    pub fn fgreater32(x:f32, y:f32) -> f32 {
+        x > y
+    }
+    pub fn fgreater_or_equal32(x:f32, y:f32) -> f32 {
+        x >= y
+    }
+    pub fn fequal32(x:f32, y:f32) -> f32 {
+        x == y
+    }
+    pub fn fnot_equal32(x:f32, y:f32) -> f32 {
+        x != y
+    }
+    pub fn fcopysign32(x:f32, y:f32) -> f32 {
+        copysign(x, y)
+    }
+
+    pub fn fadd64(x:f64, y:f64) -> f64 {
+        x + y
+    }
+    pub fn fsub64(x:f64, y:f64) -> f64 {
+        x - y
+    }
+    pub fn fmul64(x:f64, y:f64) -> f64 {
+        x * y
+    }
+    pub fn fdiv64(x:f64, y:f64) -> f64 {
+        x / y
+    }
+    pub fn FIXME_SHOULD_TEST_FMOD_frem64(x:f64, y:f64) -> f64 {
+        x
+    }
+    pub fn fless64(x:f64, y:f64) -> f64 {
+        x < y
+    }
+    pub fn fless_or_equal64(x:f64, y:f64) -> f64 {
+        x <= y
+    }
+    pub fn fgreater64(x:f64, y:f64) -> f64 {
+        x > y
+    }
+    pub fn fgreater_or_equal64(x:f64, y:f64) -> f64 {
+        x >= y
+    }
+    pub fn fequal64(x:f64, y:f64) -> f64 {
+        x == y
+    }
+    pub fn fnot_equal64(x:f64, y:f64) -> f64 {
+        x != y
+    }
+    pub fn fcopysign64(x:f64, y:f64) -> f64 {
+        copysign(x, y)
+    }
+}
