@@ -2,7 +2,7 @@ For MVP "simple programming language":
 
 Admin:
 
-  - upload to github for safekeeping
+  - upload to github or elsewhere for safekeeping
 
 Testing with `cargo test`:
 
@@ -20,6 +20,7 @@ Lexer / parser:
   - Unlabeled break and continue
   - Return stmt
   - true, false literals
+  - Block expressions (for scoping)
 
 Env:
 
@@ -31,6 +32,8 @@ Type checker:
   - Support more intrinsics
   - Support unlabeled break and continue
   - Return stmt
+  - Continue stmt
+  - Block expressions
   - implicit widening of literals (only)
 
 Desugarer:
@@ -41,6 +44,7 @@ Desugarer:
   - Support unlabeled break and continue, add labels
   - Return stmt
   - Continue stmt
+  - Block expressions
 
 Flattener:
 
@@ -52,4 +56,3 @@ Waster:
 
   - Support more intrinsics
   - Return stmt
-  - Continue stmt

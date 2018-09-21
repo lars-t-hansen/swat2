@@ -10,26 +10,29 @@ use read_text_file;
 
 #[test]
 fn fib() {
-    compile_file("test/fib.swat");
-    run_wast(&read_text_file("test/fib.wast"),
-             "assertEq(TEST.exports.fib(10), 55)");
+    run_wast(&compile_swat("test/fib"),
+             "assertEq(TEST.exports.fib(10), 55);");
 }
 
 #[test]
 fn oddeven() {
-    compile_file("test/oddeven.swat");
-    run_wast(&read_text_file("test/oddeven.wast"),
-             "assertEq(TEST.exports.odd(5), 1); assertEq(TEST.exports.even(5), 0);");
+    run_wast(&compile_swat("test/oddeven"),
+             "assertEq(TEST.exports.odd(5), 1);
+              assertEq(TEST.exports.even(5), 0);");
 }
 
 #[test]
 fn locals() {
-    compile_file("test/locals.swat");
-    run_wast(&read_text_file("test/locals.wast"),
+    run_wast(&compile_swat("test/locals"),
              "assertEq(TEST.exports.myfun(5), 8);");
 }
 
 // Utility code.
+
+fn compile_swat(basename:&str) -> String {
+    compile_file(&(basename.to_string() + ".swat"));
+    read_text_file(&(basename.to_string() + ".wast"))
+}
 
 // We split cmd at space boundaries heuristically:
 // - if the string after the space starts with '-' it is an option
