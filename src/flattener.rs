@@ -85,9 +85,7 @@ impl<'a> Flatten<'a>
                     let new_name = self.context.gensym(&l.name.name); // FIXME: dodgy? what if name is "loop", say?
                     let mut new_init = box_void();
                     swap(&mut l.init, &mut new_init);
-                    new_exprs.push(Box::new(Expr{ty: None,
-                                                 u:  Uxpr::SetLocal{name: new_name.clone(),
-                                                                    e:    new_init}}));
+                    new_exprs.push(box_set_local(&new_name, new_init));
                     self.env.locals.add_local(&l.name, new_name.clone());
                     self.localdefs.push((new_name, l.ty));
                 }
@@ -98,7 +96,7 @@ impl<'a> Flatten<'a>
                     swap(e, &mut new_e);
 
                     let mut moved = false;
-                    if let Expr{u: Uxpr::Block{body, ..}, ..} = &mut *new_e {
+                    if let Expr{u: Uxpr::Sequence{body, ..}, ..} = &mut *new_e {
                         moved = true;
                         if body.len() > 0 {
                             if must_drop {
@@ -124,9 +122,7 @@ impl<'a> Flatten<'a>
         if new_exprs.len() == 1 {
             b.items.push(BlockItem::Expr(new_exprs.remove(0)));
         } else {
-            b.items.push(BlockItem::Expr(Box::new(Expr{ty: b.ty,
-                                                       u:  Uxpr::Block{ty:   b.ty,
-                                                                       body: new_exprs}})));
+            b.items.push(BlockItem::Expr(box_sequence(b.ty, new_exprs)));
         }
         
         self.env.locals.pop_rib();
@@ -136,8 +132,7 @@ impl<'a> Flatten<'a>
         let mut replacement_expr = None;
         match &mut expr.u {
             Uxpr::Void => {
-                replacement_expr = Some(Expr{ty: None,
-                                             u:  Uxpr::Block{ty:None, body:vec![]}});
+                replacement_expr = Some(box_empty_sequence());
             }
             Uxpr::NumLit(_) => { }
             Uxpr::NullLit => { }
@@ -150,6 +145,22 @@ impl<'a> Flatten<'a>
                 self.env.locals.add_label(&break_label);
                 self.env.locals.add_label(&continue_label);
                 self.flatten_block(body);
+            }
+            Uxpr::Block(b) => {
+                self.flatten_block(b);
+                match b.items.len() {
+                    0 => {
+                        replacement_expr = Some(box_empty_sequence());
+                    }
+                    1 => {
+                        if let BlockItem::Expr(e) = b.items.remove(0) {
+                            replacement_expr = Some(e)
+                        } else {
+                            panic!("Can't happen");
+                        }
+                    }
+                    _ => { }
+                }
             }
             Uxpr::Break{..} => { }
             Uxpr::Binop{lhs, rhs, ..} => {
@@ -167,12 +178,10 @@ impl<'a> Flatten<'a>
             Uxpr::Id(id) => {
                 match self.env.lookup(&id) {
                     Some(Binding::Local(new_name)) => {
-                        replacement_expr = Some(Expr{ ty: expr.ty,
-                                                      u:  Uxpr::Local(new_name.clone()) });
+                        replacement_expr = Some(box_get_local(expr.ty, &new_name));
                     }
                     Some(Binding::GlobalVar(_mutable, _)) => {
-                        replacement_expr = Some(Expr{ ty: expr.ty,
-                                                      u:  Uxpr::Global(id.clone()) });
+                        replacement_expr = Some(box_get_global(expr.ty, &id));
                     }
                     _ => { panic!("Can't happen") }
                 }
@@ -186,14 +195,10 @@ impl<'a> Flatten<'a>
 
                         match self.env.lookup(&id) {
                             Some(Binding::Local(new_name)) => {
-                                replacement_expr = Some(Expr{ ty: None,
-                                                              u:  Uxpr::SetLocal{name: new_name.clone(),
-                                                                                 e:    new_rhs} });
+                                replacement_expr = Some(box_set_local(&new_name, new_rhs));
                             }
                             Some(Binding::GlobalVar(_mutable, _)) => {
-                                replacement_expr = Some(Expr{ ty: None,
-                                                              u:  Uxpr::SetGlobal{name: id.clone(),
-                                                                                  e:    new_rhs} });
+                                replacement_expr = Some(box_set_global(&id, new_rhs));
                             }
                             _ => { panic!("Can't happen") }
                         }
@@ -201,14 +206,13 @@ impl<'a> Flatten<'a>
 
                 }
             }
-            Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block{..} | Uxpr::Drop(_) |
+            Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) |
             Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
                 panic!("Can't happen - introduced later");
             }
         }
         if let Some(e) = replacement_expr {
-            *expr = e;
+            *expr = *e;
         }
     }
 }
-

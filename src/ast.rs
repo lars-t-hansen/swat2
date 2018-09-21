@@ -165,8 +165,9 @@ pub struct Expr {
 
 #[derive(Debug)]
 pub enum Uxpr {
+    // `Block` is introduced by desugaring (for now).
     // `While` and `Loop` are removed by desugaring.
-    // `Id` and `Assign` are removed by flattening.
+    // `Id`, `Assign`, and `Block` are removed by flattening.
     Void,
     NumLit(Number),
     NullLit,
@@ -175,6 +176,7 @@ pub enum Uxpr {
     While{test:Box<Expr>, body:Box<Block>},
     Loop{break_label:Id, body:Box<Block>},
     Break{label:Id},
+    Block(Block),
     Binop{op:Binop, lhs:Box<Expr>, rhs:Box<Expr>},
     Unop{op:Unop, e:Box<Expr>},
     Assign{lhs:LValue, rhs:Box<Expr>},
@@ -188,7 +190,7 @@ pub enum Uxpr {
     Global(Id),
     SetLocal{name:Id, e:Box<Expr>},
     SetGlobal{name:Id, e:Box<Expr>},
-    Block{ty:Option<Type>, body:Vec<Box<Expr>>},
+    Sequence{ty:Option<Type>, body:Vec<Box<Expr>>},
     Drop(Box<Expr>)
 }
 
@@ -227,6 +229,14 @@ pub fn box_if(test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>) -> Bo
     Box::new(Expr{ ty: None, u:  Uxpr::If{ test, consequent, alternate } })
 }
 
+pub fn box_empty_sequence() -> Box<Expr> {
+    Box::new(Expr{ty: None, u:  Uxpr::Sequence{ty:None, body:vec![]}})
+}
+
+pub fn box_sequence(ty:Option<Type>, body:Vec<Box<Expr>>) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::Sequence{ty, body}})
+}
+
 pub fn box_break(label:&Id) -> Box<Expr> {
     Box::new(Expr{ ty: None, u: Uxpr::Break{ label: label.clone() } })
 }
@@ -235,6 +245,26 @@ pub fn box_iterate(break_label:&Id, continue_label:&Id, body:Box<Block>) -> Box<
     Box::new(Expr{ ty:None, u:Uxpr::Iterate{ break_label: break_label.clone(),
                                              continue_label: continue_label.clone(),
                                              body } })
+}
+
+pub fn box_get_local(ty:Option<Type>, name:&Id) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::Local(name.clone()) })
+}
+
+pub fn box_get_global(ty:Option<Type>, name:&Id) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::Global(name.clone()) })
+}
+
+pub fn box_set_local(name:&Id, rhs:Box<Expr>) -> Box<Expr> {
+    Box::new(Expr{ ty: None,
+                   u:  Uxpr::SetLocal{name: name.clone(),
+                                      e:    rhs} })
+}
+
+pub fn box_set_global(name:&Id, rhs:Box<Expr>) -> Box<Expr> {
+    Box::new(Expr{ ty: None,
+                   u:  Uxpr::SetGlobal{name: name.clone(),
+                                       e:    rhs} })
 }
 
 pub fn box_intlit(n:i64, ty:Type) -> Box<Expr> {
@@ -298,4 +328,11 @@ pub fn is_num_type(t1:Option<Type>) -> bool {
 
 pub fn is_value_type(t1:Option<Type>) -> bool {
     !t1.is_none()
+}
+
+pub fn is_ref_type(t1:Option<Type>) -> bool {
+    match t1 {
+        Some(Type::AnyRef) => true,
+        _ => false
+    }
 }

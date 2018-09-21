@@ -128,41 +128,47 @@ impl<'a> Desugarer<'a>
                 self.desugar_block(body);
             }
             Uxpr::Break{..} => { }
-            Uxpr::Binop{lhs, rhs, ..} => {
-                // TODO: x % y if x and y are float
-                // TODO: x != y if x and y are references
-                self.desugar_expr(lhs);
-                self.desugar_expr(rhs);
+            Uxpr::Binop{op, lhs, rhs} => {
+                match op {
+                    Binop::NotEqual if is_ref_type(lhs.ty)  => {
+                        // (ne x y) => (eqz (eq x y))
+                        panic!("NYI");
+                    }
+                    Binop::Rem if is_float_type(lhs.ty) => {
+                        // Rewrite as: 
+                        //  { let _x = x;
+                        //    let _y = y;
+                        //    _x - trunc(_x / _y) * _y
+                        //  }
+                        panic!("NYI");
+                    }
+                    _ => {
+                        self.desugar_expr(lhs);
+                        self.desugar_expr(rhs);
+                    }
+                }
             }
             Uxpr::Unop{op, e} => {
+                self.desugar_expr(e);
                 match op {
                     Unop::BitNot => {
                         let mut new_e = box_void();
                         swap(e, &mut new_e);
-
-                        new_e = box_binop(new_e.ty, Binop::BitXor, new_e, box_intlit(-1, e.ty.unwrap()));
-                        self.desugar_expr(&mut new_e);
-                        replacement_expr = Some(new_e);
+                        replacement_expr =
+                            Some(box_binop(new_e.ty, Binop::BitXor, new_e, box_intlit(-1, e.ty.unwrap())));
                     }
                     Unop::Not => {
                         let mut new_e = box_void();
                         swap(e, &mut new_e);
-
-                        new_e = box_unop(new_e.ty, Unop::Eqz, new_e);
-                        self.desugar_expr(&mut new_e);
-                        replacement_expr = Some(new_e);
+                        replacement_expr = Some(box_unop(new_e.ty, Unop::Eqz, new_e));
                     }                        
                     Unop::Neg => {
                         let mut new_e = box_void();
                         swap(e, &mut new_e);
-
-                        new_e = box_binop(new_e.ty, Binop::Sub, box_intlit(0, e.ty.unwrap()), new_e);
-                        self.desugar_expr(&mut new_e);
-                        replacement_expr = Some(new_e);
+                        replacement_expr =
+                            Some(box_binop(new_e.ty, Binop::Sub, box_intlit(0, e.ty.unwrap()), new_e));
                     }
-                    _ => {
-                        self.desugar_expr(e);
-                    }
+                    _ => { }
                 }
             }
             Uxpr::Call{name, actuals} => {
@@ -201,7 +207,7 @@ impl<'a> Desugarer<'a>
                     LValue::Id(_id) => { }
                 }
             }
-            Uxpr::Block{..} | Uxpr::Drop(_) |
+            Uxpr::Block(_) | Uxpr::Sequence{..} | Uxpr::Drop(_) |
             Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
                 panic!("Can't happen - introduced later");
             }

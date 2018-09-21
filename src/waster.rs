@@ -84,7 +84,7 @@ impl<'a> Waster<'a>
         assert!(b.items.len() == 1);
         if let BlockItem::Expr(e) = &b.items[0] {
             // I fought the borrow checker and the borrow checker won.
-            if let &Expr{u:Uxpr::Block{ref body, ..}, ..} = &**e {
+            if let &Expr{u:Uxpr::Sequence{ref body, ..}, ..} = &**e {
                 for expr in body {
                     self.wast_expr(expr);
                 }
@@ -107,7 +107,7 @@ impl<'a> Waster<'a>
 
     fn wast_expr(&mut self, e:&Expr) {
         match &e.u {
-            Uxpr::Block{ty, body} => {
+            Uxpr::Sequence{ty, body} => {
                 self.emit(&format!("(block {} ", render_type(*ty)));
                 for expr in body {
                     self.wast_expr(expr);
@@ -183,7 +183,7 @@ impl<'a> Waster<'a>
                 self.wast_expr(&e);
                 self.emit(")");
             }
-            Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} |
+            Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block(_) |
             Uxpr::Assign{..} | Uxpr::Id(_) =>
             {
                 panic!("Can't happen - should have been removed");

@@ -9,7 +9,7 @@ mod context;
 mod desugarer;
 mod environment;
 mod flattener;
-mod integration_tests;
+#[cfg(test)] mod integration_tests;
 mod typechecker;
 mod waster;
 

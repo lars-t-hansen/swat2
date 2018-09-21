@@ -18,6 +18,7 @@ Lexer / parser:
   - true, false literals
   - Block expressions (for scoping)
   - One-armed "if" for void contexts
+  - "else if" thing, not currently allowed
 
 Env:
 
