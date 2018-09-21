@@ -156,7 +156,7 @@ impl<'a> Flatten<'a>
                         if let BlockItem::Expr(e) = b.items.remove(0) {
                             replacement_expr = Some(e)
                         } else {
-                            panic!("Can't happen");
+                            unreachable!();
                         }
                     }
                     _ => { }
@@ -183,7 +183,7 @@ impl<'a> Flatten<'a>
                     Some(Binding::GlobalVar(_mutable, _)) => {
                         replacement_expr = Some(box_get_global(expr.ty, &id));
                     }
-                    _ => { panic!("Can't happen") }
+                    _ => { unreachable!(); }
                 }
             }
             Uxpr::Assign{lhs, rhs} => {
@@ -200,7 +200,7 @@ impl<'a> Flatten<'a>
                             Some(Binding::GlobalVar(_mutable, _)) => {
                                 replacement_expr = Some(box_set_global(&id, new_rhs));
                             }
-                            _ => { panic!("Can't happen") }
+                            _ => { unreachable!() }
                         }
                     }
 
@@ -208,7 +208,7 @@ impl<'a> Flatten<'a>
             }
             Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) |
             Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
-                panic!("Can't happen - introduced later");
+                unreachable!();
             }
         }
         if let Some(e) = replacement_expr {

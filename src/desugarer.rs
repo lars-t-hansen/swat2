@@ -209,7 +209,7 @@ impl<'a> Desugarer<'a>
             }
             Uxpr::Block(_) | Uxpr::Sequence{..} | Uxpr::Drop(_) |
             Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
-                panic!("Can't happen - introduced later");
+                unreachable!();
             }
         }
         if let Some(e) = replacement_expr {

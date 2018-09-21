@@ -41,6 +41,7 @@ impl<T> IntrinsicEnv<T>
 
         // FIXME: max, min, abs are floating intrinsics but not integer intrinsics...
         // FIXME: extendK instructions not reflected here...
+        // FIXME: numeric conversions should be represented as intrinsics eg i32_to_i64(x)
 
         let i_to_i = Rc::new(vec![Rc::new((vec![Type::I32], Some(Type::I32))),
                                   Rc::new((vec![Type::I64], Some(Type::I64)))]);

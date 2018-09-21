@@ -92,7 +92,7 @@ impl<'a> Waster<'a>
                 self.wast_expr(&e);
             }
         } else {
-            panic!("Can't happen");
+            unreachable!();
         }
     }
 
@@ -101,7 +101,7 @@ impl<'a> Waster<'a>
         if let BlockItem::Expr(e) = &b.items[0] {
             self.wast_expr(&e);
         } else {
-            panic!("Can't happen");
+            unreachable!();
         }
     }
 
@@ -186,7 +186,7 @@ impl<'a> Waster<'a>
             Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block(_) |
             Uxpr::Assign{..} | Uxpr::Id(_) =>
             {
-                panic!("Can't happen - should have been removed");
+                unreachable!();
             }
         }
     }
@@ -222,7 +222,7 @@ fn render_op_type(ty:Option<Type>) -> String {
         Some(Type::F32) => "f32".to_string(),
         Some(Type::F64) => "f64".to_string(),
         Some(Type::AnyRef) => "ref".to_string(),
-        None => panic!("Can't happen")
+        None => unreachable!()
     }
 }
 
@@ -234,7 +234,7 @@ fn render_binop(op:Binop, ty:Type) -> String {
         Binop::Div => match ty {
             Type::I32 | Type::I64 => "div_s".to_string(),
             Type::F32 | Type::F64 => "div".to_string(),
-            _ => panic!("Can't happen")
+            _ => unreachable!()
         },
         Binop::UDiv => "div_u".to_string(),
         Binop::Rem => "rem_s".to_string(),
@@ -248,22 +248,22 @@ fn render_binop(op:Binop, ty:Type) -> String {
         Binop::Less => match ty {
             Type::I32 | Type::I64 => "lt_s".to_string(),
             Type::F32 | Type::F64 => "lt".to_string(),
-            _ => panic!("Can't happen")
+            _ => unreachable!()
         },
         Binop::LessOrEqual => match ty {
             Type::I32 | Type::I64 => "le_s".to_string(),
             Type::F32 | Type::F64 => "le".to_string(),
-            _ => panic!("Can't happen")
+            _ => unreachable!()
         },
         Binop::Greater => match ty {
             Type::I32 | Type::I64 => "gt_s".to_string(),
             Type::F32 | Type::F64 => "gt".to_string(),
-            _ => panic!("Can't happen")
+            _ => unreachable!()
         },
         Binop::GreaterOrEqual => match ty {
             Type::I32 | Type::I64 => "ge_s".to_string(),
             Type::F32 | Type::F64 => "ge".to_string(),
-            _ => panic!("Can't happen")
+            _ => unreachable!()
         },
         Binop::Equal => "eq".to_string(),
         Binop::NotEqual => "ne".to_string(),
@@ -292,7 +292,7 @@ fn render_unop(op:Unop) -> String {
         Unop::Trunc => "trunc".to_string(),
         Unop::Eqz => "eqz".to_string(),
         Unop::Neg | Unop::Not | Unop::BitNot => {
-            panic!("Can't happen");
+            unreachable!()
         }
     }
 }

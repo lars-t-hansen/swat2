@@ -151,8 +151,8 @@ Addop: Binop = {
 }
 
 MulExpr: Box<Expr> = {
-    <lhs:MulExpr> <op:Mulop> <rhs:CastExpr> => box_binop(None, op, lhs, rhs),
-    CastExpr
+    <lhs:MulExpr> <op:Mulop> <rhs:UnaryExpr> => box_binop(None, op, lhs, rhs),
+    UnaryExpr
 }
 
 Mulop: Binop = {
@@ -161,11 +161,6 @@ Mulop: Binop = {
     "%" => Binop::Rem,
     "/u" => Binop::UDiv,
     "%u" => Binop::URem
-}
-
-CastExpr: Box<Expr> = {
-    <expr:CastExpr> "as" <ty:Type> => box_cast(expr, ty),
-    UnaryExpr
 }
 
 UnaryExpr: Box<Expr> = {

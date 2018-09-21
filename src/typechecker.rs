@@ -324,7 +324,7 @@ impl Check
             }
             Uxpr::Block(_) | Uxpr::Iterate{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) |
             Uxpr::Local(_) | Uxpr::Global(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
-                panic!("Can't happen - introduced later");
+                unreachable!();
             }
         }
     }
