@@ -1,26 +1,23 @@
 For MVP "simple programming language":
 
-Admin:
-
-  - upload to github or elsewhere for safekeeping
-
 Testing with `cargo test`:
 
-  - need tests for lots of things
+  - ===> need tests for lots of things
 
 Lexer / parser:
 
-  - Better lexer - what we have does not work well for strings and other things
+  - ===> Better lexer - what we have does not work well for strings and %%JS
+  - ===> Comments
   - Propagate errors up the tree, do not panic
   - More operators and precedence levels
   - how do we do conversion - as casts, `i32(x)`, or with an operator, `x as i32`?
     the latter is more rust-like, and reduces confusion about type names vs idents.
-  - Comments
   - Probably a "continue" thing
   - Unlabeled break and continue
   - Return stmt
   - true, false literals
   - Block expressions (for scoping)
+  - One-armed "if" for void contexts
 
 Env:
 
@@ -38,8 +35,8 @@ Type checker:
 
 Desugarer:
 
+  - ===> Two missing rewrites that are logged in the text
   - Expand true, false
-  - Two missing rewrites that are logged
   - Support more intrinsics
   - Support unlabeled break and continue, add labels
   - Return stmt
@@ -48,7 +45,7 @@ Desugarer:
 
 Flattener:
 
-  - Use better gensym tagging for locals
+  - ===> Use better gensym tagging for locals
   - Return stmt
   - Continue stmt
 
