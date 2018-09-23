@@ -120,12 +120,16 @@ pub enum Binop {
     Copysign,
 }
 
-// Unops have equal operand type and result type
+// Unops usually have equal input and output types, but not for
+// conversions.
 #[derive(Clone, Copy, Debug)]
 pub enum Unop {
-    Neg,                        // Not after lowering
-    Not,                        // Not after lowering
-    BitNot,                     // Not after lowering
+    // Surface syntax that's removed by desugaring
+    Neg,
+    Not,
+    BitNot,
+
+    // Operators that are introduced by desugaring intrinsic calls
     Clz,
     Ctz,
     Popcnt,
@@ -137,24 +141,9 @@ pub enum Unop {
     Floor,
     Nearest,
     Trunc,
-    Eqz
+    Eqz,
+    I32ToI64
 }
-
-// ConvOps have different input and output types
-/*
-pub enum ConvOp {
-    I32ToI64,
-    U32ToI64,
-    I64ToI32,
-    F32ToF64,
-    F64ToF32,
-    F32ToI32Bits,
-    F64ToI64Bits,
-    I32BitsToF32,
-    I64BitsToF64,
-    // and many, many more
-}
-*/
 
 #[derive(Debug)]
 pub struct Expr {

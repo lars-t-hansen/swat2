@@ -41,9 +41,11 @@ impl<T> IntrinsicEnv<T>
 
         // FIXME: max, min, abs are floating intrinsics but not integer intrinsics...
         // FIXME: extendK instructions not reflected here...
-        // FIXME: numeric conversions should be represented as intrinsics eg i32_to_i64(x)
+        // FIXME: many more numeric conversions
 
         let i_to_i = Rc::new(vec![Rc::new((vec![Type::I32], Some(Type::I32))),
+                                  Rc::new((vec![Type::I64], Some(Type::I64)))]);
+        let i_to_l = Rc::new(vec![Rc::new((vec![Type::I32], Some(Type::I32))),
                                   Rc::new((vec![Type::I64], Some(Type::I64)))]);
         let ii_to_i = Rc::new(vec![Rc::new((vec![Type::I32, Type::I32], Some(Type::I32))),
                                    Rc::new((vec![Type::I64, Type::I64], Some(Type::I64)))]);
@@ -62,6 +64,8 @@ impl<T> IntrinsicEnv<T>
         intrinsics.insert("floor".to_string(),   (f_to_f.clone(), Intrin::Unop(Unop::Floor)));
         intrinsics.insert("nearest".to_string(), (f_to_f.clone(), Intrin::Unop(Unop::Nearest)));
         intrinsics.insert("trunc".to_string(),   (f_to_f.clone(), Intrin::Unop(Unop::Trunc)));
+
+        intrinsics.insert("i32_to_i64".to_string(), (i_to_l.clone(), Intrin::Unop(Unop::I32ToI64)));
 
         intrinsics.insert("rotl".to_string(), (ii_to_i.clone(), Intrin::Binop(Binop::RotLeft)));
         intrinsics.insert("rotr".to_string(), (ii_to_i.clone(), Intrin::Binop(Binop::RotRight)));

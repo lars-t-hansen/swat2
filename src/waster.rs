@@ -291,6 +291,7 @@ fn render_unop(op:Unop) -> String {
         Unop::Nearest => "nearest".to_string(),
         Unop::Trunc => "trunc".to_string(),
         Unop::Eqz => "eqz".to_string(),
+        Unop::I32ToI64 => "extend_s/i32".to_string(),
         Unop::Neg | Unop::Not | Unop::BitNot => {
             unreachable!()
         }
