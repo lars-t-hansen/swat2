@@ -34,7 +34,7 @@ impl<'a> Waster<'a>
 
     fn wast_global(&mut self, g:&GlobalVar) {
         let ty = render_type(Some(g.ty));
-        let ty = if g.mutable { format!("(mut {})", ty) } else { ty };
+        let ty = if g.mutable { format!("(mut {})", ty) } else { ty.to_string() };
         if g.imported {
             self.emit(&format!("(import \"\" \"{}\" (global {}))", &g.name, ty));
         } else {
@@ -204,94 +204,94 @@ fn maybe_export(exported: bool, name:&Id) -> String {
     }
 }
 
-fn render_type(ty:Option<Type>) -> String {
+fn render_type(ty:Option<Type>) -> &'static str {
     match ty {
-        Some(Type::I32) => "i32".to_string(),
-        Some(Type::I64) => "i64".to_string(),
-        Some(Type::F32) => "f32".to_string(),
-        Some(Type::F64) => "f64".to_string(),
-        Some(Type::AnyRef) => "anyref".to_string(),
-        None => "".to_string()
+        Some(Type::I32) => "i32",
+        Some(Type::I64) => "i64",
+        Some(Type::F32) => "f32",
+        Some(Type::F64) => "f64",
+        Some(Type::AnyRef) => "anyref",
+        None => ""
     }
 }
 
-fn render_op_type(ty:Option<Type>) -> String {
+fn render_op_type(ty:Option<Type>) -> &'static str {
     match ty {
-        Some(Type::I32) => "i32".to_string(),
-        Some(Type::I64) => "i64".to_string(),
-        Some(Type::F32) => "f32".to_string(),
-        Some(Type::F64) => "f64".to_string(),
-        Some(Type::AnyRef) => "ref".to_string(),
+        Some(Type::I32) => "i32",
+        Some(Type::I64) => "i64",
+        Some(Type::F32) => "f32",
+        Some(Type::F64) => "f64",
+        Some(Type::AnyRef) => "ref",
         None => unreachable!()
     }
 }
 
-fn render_binop(op:Binop, ty:Type) -> String {
+fn render_binop(op:Binop, ty:Type) -> &'static str {
     match op {
-        Binop::Add => "add".to_string(),
-        Binop::Sub => "sub".to_string(),
-        Binop::Mul => "mul".to_string(),
+        Binop::Add => "add",
+        Binop::Sub => "sub",
+        Binop::Mul => "mul",
         Binop::Div => match ty {
-            Type::I32 | Type::I64 => "div_s".to_string(),
-            Type::F32 | Type::F64 => "div".to_string(),
+            Type::I32 | Type::I64 => "div_s",
+            Type::F32 | Type::F64 => "div",
             _ => unreachable!()
         },
-        Binop::UDiv => "div_u".to_string(),
-        Binop::Rem => "rem_s".to_string(),
-        Binop::URem => "rem_u".to_string(),
-        Binop::ShiftLeft => "shl".to_string(),
-        Binop::ShiftRight => "shr_s".to_string(),
-        Binop::UShiftRight => "shr_u".to_string(),
-        Binop::BitAnd => "and".to_string(),
-        Binop::BitOr => "or".to_string(),
-        Binop::BitXor => "xor".to_string(),
+        Binop::UDiv => "div_u",
+        Binop::Rem => "rem_s",
+        Binop::URem => "rem_u",
+        Binop::ShiftLeft => "shl",
+        Binop::ShiftRight => "shr_s",
+        Binop::UShiftRight => "shr_u",
+        Binop::BitAnd => "and",
+        Binop::BitOr => "or",
+        Binop::BitXor => "xor",
         Binop::Less => match ty {
-            Type::I32 | Type::I64 => "lt_s".to_string(),
-            Type::F32 | Type::F64 => "lt".to_string(),
+            Type::I32 | Type::I64 => "lt_s",
+            Type::F32 | Type::F64 => "lt",
             _ => unreachable!()
         },
         Binop::LessOrEqual => match ty {
-            Type::I32 | Type::I64 => "le_s".to_string(),
-            Type::F32 | Type::F64 => "le".to_string(),
+            Type::I32 | Type::I64 => "le_s",
+            Type::F32 | Type::F64 => "le",
             _ => unreachable!()
         },
         Binop::Greater => match ty {
-            Type::I32 | Type::I64 => "gt_s".to_string(),
-            Type::F32 | Type::F64 => "gt".to_string(),
+            Type::I32 | Type::I64 => "gt_s",
+            Type::F32 | Type::F64 => "gt",
             _ => unreachable!()
         },
         Binop::GreaterOrEqual => match ty {
-            Type::I32 | Type::I64 => "ge_s".to_string(),
-            Type::F32 | Type::F64 => "ge".to_string(),
+            Type::I32 | Type::I64 => "ge_s",
+            Type::F32 | Type::F64 => "ge",
             _ => unreachable!()
         },
-        Binop::Equal => "eq".to_string(),
-        Binop::NotEqual => "ne".to_string(),
-        Binop::ULess => "lt_u".to_string(),
-        Binop::ULessOrEqual => "le_u".to_string(),
-        Binop::UGreater => "gt_u".to_string(),
-        Binop::UGreaterOrEqual => "ge_u".to_string(),
-        Binop::RotLeft => "rotl".to_string(),
-        Binop::RotRight => "rotr".to_string(),
-        Binop::Copysign => "copysign".to_string()
+        Binop::Equal => "eq",
+        Binop::NotEqual => "ne",
+        Binop::ULess => "lt_u",
+        Binop::ULessOrEqual => "le_u",
+        Binop::UGreater => "gt_u",
+        Binop::UGreaterOrEqual => "ge_u",
+        Binop::RotLeft => "rotl",
+        Binop::RotRight => "rotr",
+        Binop::Copysign => "copysign"
     }
 }
 
-fn render_unop(op:Unop) -> String {
+fn render_unop(op:Unop) -> &'static str {
     match op {
-        Unop::Clz => "clz".to_string(),
-        Unop::Ctz => "ctz".to_string(),
-        Unop::Popcnt => "popcnt".to_string(),
-        Unop::Extend8 => "extend8_s".to_string(),
-        Unop::Extend16 => "extend16_s".to_string(),
-        Unop::Extend32 => "extend32_s".to_string(),
-        Unop::Sqrt => "sqrt".to_string(),
-        Unop::Ceil => "ceil".to_string(),
-        Unop::Floor => "floor".to_string(),
-        Unop::Nearest => "nearest".to_string(),
-        Unop::Trunc => "trunc".to_string(),
-        Unop::Eqz => "eqz".to_string(),
-        Unop::I32ToI64 => "extend_s/i32".to_string(),
+        Unop::Clz => "clz",
+        Unop::Ctz => "ctz",
+        Unop::Popcnt => "popcnt",
+        Unop::Extend8 => "extend8_s",
+        Unop::Extend16 => "extend16_s",
+        Unop::Extend32 => "extend32_s",
+        Unop::Sqrt => "sqrt",
+        Unop::Ceil => "ceil",
+        Unop::Floor => "floor",
+        Unop::Nearest => "nearest",
+        Unop::Trunc => "trunc",
+        Unop::Eqz => "eqz",
+        Unop::I32ToI64 => "extend_s/i32",
         Unop::Neg | Unop::Not | Unop::BitNot => {
             unreachable!()
         }
