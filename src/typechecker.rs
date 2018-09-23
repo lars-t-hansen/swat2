@@ -244,7 +244,7 @@ impl Check
                     Unop::Clz | Unop::Ctz | Unop::Popcnt | Unop::Eqz |
                     Unop::Extend8 | Unop::Extend16 | Unop::Extend32 |
                     Unop::Sqrt | Unop::Ceil | Unop::Floor | Unop::Nearest | Unop::Trunc |
-                    Unop::I32ToI64 =>
+                    Unop::I32ToI64 | Unop::U32ToI64 | Unop::I64ToI32 =>
                     {
                         panic!("Unary operator should not be present at this stage");
                     }

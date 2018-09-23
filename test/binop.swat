@@ -76,6 +76,23 @@ module Binops
         rotr(x, y)
     }
 
+    fn box64(high:i32, low:i32) -> i64 {
+        (u32_to_i64(high) << 32L) | u32_to_i64(low)
+    }
+    fn low(x:i64) -> i32 {
+        i64_to_i32(x)
+    }
+    fn high(x:i64) -> i32 {
+        i64_to_i32(x >> 32L)
+    }
+
+    pub fn add64_low(x_high:i32, x_low:i32, y_high:i32, y_low:i32) -> i32 {
+        low(box64(x_high, x_low) + box64(y_high, y_low))
+    }
+    pub fn add64_high(x_high:i32, x_low:i32, y_high:i32, y_low:i32) -> i32 {
+        high(box64(x_high, x_low) + box64(y_high, y_low))
+    }
+
     pub fn fadd32(x:f32, y:f32) -> f32 {
         x + y
     }

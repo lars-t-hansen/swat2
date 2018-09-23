@@ -142,7 +142,9 @@ pub enum Unop {
     Nearest,
     Trunc,
     Eqz,
-    I32ToI64
+    I32ToI64,
+    U32ToI64,
+    I64ToI32,
 }
 
 #[derive(Debug)]

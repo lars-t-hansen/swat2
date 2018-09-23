@@ -27,18 +27,16 @@ Env:
 Type checker:
 
   - Propagate errors up the tree, do not panic
-  - Support more intrinsics
   - Support unlabeled break and continue
   - Return stmt
   - Continue stmt
   - Block expressions
-  - implicit widening of literals (only)
+  - ===> implicit widening of literals
 
 Desugarer:
 
   - ===> Two missing rewrites that are logged in the text
   - Expand true, false
-  - Support more intrinsics
   - Support unlabeled break and continue, add labels
   - Return stmt
   - Continue stmt

@@ -292,6 +292,8 @@ fn render_unop(op:Unop) -> &'static str {
         Unop::Trunc => "trunc",
         Unop::Eqz => "eqz",
         Unop::I32ToI64 => "extend_s/i32",
+        Unop::U32ToI64 => "extend_u/i32",
+        Unop::I64ToI32 => "wrap/i64",
         Unop::Neg | Unop::Not | Unop::BitNot => {
             unreachable!()
         }
