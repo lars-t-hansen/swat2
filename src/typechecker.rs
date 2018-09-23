@@ -46,14 +46,16 @@ impl Check
     fn check_module(&mut self, m:&mut Module) {
         for item in &mut m.items {
             match item {
-                ModItem::Var(v) => { self.bind_global(v); }
-                ModItem::Fn(f)  => { self.bind_function(f); }
+                ModItem::Var(v)    => { self.bind_global(v); }
+                ModItem::Fn(f)     => { self.bind_function(f); }
+                ModItem::Struct(s) => { panic!("NYI"); }
             }
         }
         for item in &mut m.items {
             match item {
-                ModItem::Var(v) => { self.check_global(v); }
-                ModItem::Fn(f)  => { self.check_function(f); }
+                ModItem::Var(v)    => { self.check_global(v); }
+                ModItem::Fn(f)     => { self.check_function(f); }
+                ModItem::Struct(s) => { panic!("NYI"); }
             }
         }
     }
@@ -305,6 +307,12 @@ impl Check
                     }
                 }
             }
+            Uxpr::Deref{base, field} => {
+                panic!("NYI");
+            }
+            Uxpr::New{ty_name, values} => {
+                panic!("NYI");
+            }
             Uxpr::Assign{lhs, rhs} => {
                 self.check_expr(rhs);
                 match lhs {
@@ -320,6 +328,9 @@ impl Check
                         if !is_same_type(Some(t), rhs.ty) {
                             panic!("Type of value being stored does not match variable");
                         }
+                    }
+                    LValue::Field{base,field} => {
+                        panic!("NYI");
                     }
                 }
             }

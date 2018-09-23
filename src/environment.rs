@@ -222,8 +222,9 @@ impl<T> Env<T>
 
     pub fn define_toplevel(&mut self, item:&ModItem) {
         match item {
-            ModItem::Var(v) => { self.define_global(v) }
-            ModItem::Fn(f)  => { self.define_function(f); }
+            ModItem::Var(v)    => { self.define_global(v) }
+            ModItem::Fn(f)     => { self.define_function(f); }
+            ModItem::Struct(s) => { panic!("NYI"); }
         }
     }
 }

@@ -25,19 +25,26 @@ ModItem: ModItem = {
         ModItem::Var(Box::new(GlobalVar {mutable, exported, imported:false, name, ty, init}))
     },
 
-    "extern" "fn" <name:Id> <formals:Formals> <retn:Return?> ";" => {
+    "extern" "fn" <name:Id> "(" <formals:Formals> ")" <retn:Return?> ";" => {
         let body = Box::new(Block { ty: None, items: vec![] });
         ModItem::Fn(Box::new(FnDef {exported:false, imported:true, name, formals, retn, body, locals: None}))
     },
 
-    <v:"pub"?> "fn" <name:Id> <formals:Formals> <retn:Return?> <body:Block> => {
+    <v:"pub"?> "fn" <name:Id> "(" <formals:Formals> ")" <retn:Return?> <body:Block> => {
         let exported = if let Some(_) = v { true } else { false };
         ModItem::Fn(Box::new(FnDef {exported, imported:false, name, formals, retn, body, locals: None}))
+    },
+
+    "struct" <name:Id> "{" <fields:Formals> "}" => {
+        ModItem::Struct(Box::new(StructDef { name, fields }))
     }
 }
 
+// TODO: this is wrong, the '?' here allows eg (a,b,) which is not right,
+// we should lift this but it's a little work.
+
 Formals: Vec<(Id, Type)> = {
-    "(" <fs:(<Formal> ",")*> <f:Formal?> ")" =>
+    <fs:(<Formal> ",")*> <f:Formal?> =>
         match f {
             None => fs,
             Some(x) => { let mut v = fs; v.push(x); v }
@@ -92,8 +99,13 @@ Expr: Box<Expr> = {
 }
 
 AssignExpr: Box<Expr> = {
-    <lhs:Id> "=" <rhs:RelationalExpr> => Box::new(Expr{ty:None, u:Uxpr::Assign{lhs:LValue::Id(lhs), rhs}}),
+    <lhs:LValue> "=" <rhs:RelationalExpr> => Box::new(Expr{ty:None, u:Uxpr::Assign{lhs, rhs}}),
     RelationalExpr
+}
+
+LValue: LValue = {
+    <lhs:Id> => LValue::Id(lhs),
+    <base:PrimaryExpr> "." <field:Id> => LValue::Field{base, field}
 }
 
 RelationalExpr: Box<Expr> = {
@@ -183,6 +195,9 @@ PrimaryExpr: Box<Expr> = {
     "break" <label:Id> => {
         Box::new(Expr{ty: None, u:Uxpr::Break{label}})
     },
+    "new" <ty_name:Id> "{" <values:FieldValues> "}" => {
+        Box::new(Expr{ty: None, u: Uxpr::New{ ty_name, values } })
+    },
     "(" <e:Expr> ")" => {
         e
     },
@@ -195,6 +210,9 @@ PrimaryExpr: Box<Expr> = {
         } else {
             Box::new(Expr{ty: None, u:Uxpr::Id(name)})
         }
+    },
+    <base:PrimaryExpr> "." <field:Id> => {
+        Box::new(Expr{ty: None, u:Uxpr::Deref{base, field}})
     },
     <n:IntLit> => {
         let bs = n.as_bytes();
@@ -250,6 +268,18 @@ Actuals: Vec<Box<Expr>> = {
             None => es,
             Some(x) => { let mut v = es; v.push(x); v }
         }
+}
+
+FieldValues: Vec<(Id,Box<Expr>)> = {
+    <fs:(<FieldValue> ",")*> <f:FieldValue?> =>
+        match f {
+            None => fs,
+            Some(x) => { let mut v = fs; v.push(x); v }
+        }
+}
+        
+FieldValue: (Id, Box<Expr>) = {
+    <name:Id> ":" <e:Expr> => (name, e)
 }
     
 // Rough lexical analysis.  The JSItem does not work, nor will string literals

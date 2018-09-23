@@ -9,9 +9,6 @@ Lexer / parser:
   - ===> Better lexer - what we have does not work well for strings and %%JS
   - ===> Comments
   - Propagate errors up the tree, do not panic
-  - More operators and precedence levels
-  - how do we do conversion - as casts, `i32(x)`, or with an operator, `x as i32`?
-    the latter is more rust-like, and reduces confusion about type names vs idents.
   - Probably a "continue" thing
   - Unlabeled break and continue
   - Return stmt

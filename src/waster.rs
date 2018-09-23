@@ -25,8 +25,9 @@ impl<'a> Waster<'a>
         self.emit("(module\n");
         for item in &m.items {
             match item {
-                ModItem::Var(v) => { self.wast_global(&v); }
-                ModItem::Fn(f)  => { self.wast_function(&f); }
+                ModItem::Var(v)    => { self.wast_global(&v); }
+                ModItem::Fn(f)     => { self.wast_function(&f); }
+                ModItem::Struct(s) => { panic!("NYI"); }
             }
         }
         self.emit(")\n");
@@ -182,6 +183,12 @@ impl<'a> Waster<'a>
                 self.emit(&format!("(set_global ${} ", &name));
                 self.wast_expr(&e);
                 self.emit(")");
+            }
+            Uxpr::Deref{base, field} => {
+                panic!("NYI");
+            }
+            Uxpr::New{ty_name, values} => {
+                panic!("NYI");
             }
             Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block(_) |
             Uxpr::Assign{..} | Uxpr::Id(_) =>

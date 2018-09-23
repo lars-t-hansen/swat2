@@ -50,8 +50,9 @@ impl<'a> Flatten<'a>
         (&m.items).into_iter().for_each(|item| self.env.define_toplevel(item));
         for item in &mut m.items {
             match item {
-                ModItem::Var(v) => { self.flatten_global(v) }
-                ModItem::Fn(f)  => { self.flatten_function(f); }
+                ModItem::Var(v)    => { self.flatten_global(v) }
+                ModItem::Fn(f)     => { self.flatten_function(f); }
+                ModItem::Struct(s) => { panic!("NYI"); }
             }
         }
     }
@@ -186,6 +187,12 @@ impl<'a> Flatten<'a>
                     _ => { unreachable!(); }
                 }
             }
+            Uxpr::Deref{base, field} => {
+                panic!("NYI");
+            }
+            Uxpr::New{ty_name, values} => {
+                panic!("NYI");
+            }
             Uxpr::Assign{lhs, rhs} => {
                 self.flatten_expr(rhs);
                 match lhs {
@@ -203,7 +210,9 @@ impl<'a> Flatten<'a>
                             _ => { unreachable!() }
                         }
                     }
-
+                    LValue::Field{base,field} => {
+                        panic!("NYI");
+                    }
                 }
             }
             Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) |

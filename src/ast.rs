@@ -20,7 +20,8 @@ pub struct Module {
 #[derive(Debug)]
 pub enum ModItem {
     Var(Box<GlobalVar>),
-    Fn(Box<FnDef>)
+    Fn(Box<FnDef>),
+    Struct(Box<StructDef>)
 }
 
 #[derive(Debug)]
@@ -42,6 +43,12 @@ pub struct FnDef {
     pub retn:     Option<Type>,
     pub body:     Box<Block>,
     pub locals:   Option<Vec<(Id,Type)>>
+}
+
+#[derive(Debug)]
+pub struct StructDef {
+    pub name:   Id,
+    pub fields: Vec<(Id,Type)>
 }
 
 #[derive(Debug)]
@@ -163,6 +170,8 @@ pub enum Uxpr {
     NumLit(Number),
     NullLit,
     Id(Id),
+    Deref{base:Box<Expr>, field:Id},
+    New{ty_name:Id, values:Vec<(Id,Box<Expr>)>},
     If{test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>},
     While{test:Box<Expr>, body:Box<Block>},
     Loop{break_label:Id, body:Box<Block>},
@@ -187,7 +196,8 @@ pub enum Uxpr {
 
 #[derive(Debug)]
 pub enum LValue {
-    Id(Id)
+    Id(Id),
+    Field{base: Box<Expr>, field:Id}
 }
 
 #[derive(Clone, Copy, Debug)]
