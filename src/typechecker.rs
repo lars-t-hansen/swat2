@@ -18,8 +18,7 @@
 // It computes types for all expr and block nodes and records those in the
 // nodes.  It transforms every RawRef type into a CookedRef type.
 //
-// In the future, it may also insert explicit casts where they are implicit,
-// rewriting the expression tree as required.
+// In the future, it may also insert explicit casts where they are implicit.
 
 use ast::*;
 use environment::*;
@@ -44,110 +43,71 @@ impl Check
     }
 
     fn check_module(&mut self, m:&mut Module) {
-        // We must bind struct names first so that every subsequent cooking
-        // operation knows whether it's a struct type.  But the structs
-        // don't actually need to be bound in a the final env. 
+        check_unique_names(&m.items,
+                           |item| {
+                               match item {
+                                   ModItem::Var(v) => v.name,
+                                   ModItem::Fn(f) => f.name,
+                                   ModItem::Struct(s) => s.name
+                               }
+                           },
+                           "toplevel");
 
-        // We can do imperative stuff (refcell), or we can have a replace step,
-        // which also works ok - the data structures are small.
-        
-        // This will all change actually.  We need to rewrite all types in
-        // all toplevel items as we cook them, so having a single "define" thing
-        // that's once and for all, is no more.
-        //
-        // So now we need to rewrite things in data structures we don't own...
-
-        // For structs, pass 1:
-        //   - defines the name
-        //   - checks that fields do not have duplicate names
-        // Then for pass 2
-        //   - define the names
-        //   - check that function prototypes and global vars
-        //     reference meaningful types, and cook those types
-        //   - check that struct field names reference meaningful
-        //     types, and cook the fields types
-        // Then we do pass 3, for globals and functions, to compute
-        // expression types
-/*
-        for item in &mut m.items {
-            if let ModItem::Struct(s) = item {
-                self.bind_struct(s);
-                self.check_unique_names(&s.fields, "field");
-            }
-        }
-*/
+        // Introduce names with their roles but null contents; the next step can
+        // only use the role information, no details.
         for item in &mut m.items {
             match item {
-                ModItem::Var(v)    => { self.bind_global(v); }
-                ModItem::Fn(f)     => { self.bind_function(f); }
-                ModItem::Struct(s) => { panic!("NYI") }
+                ModItem::Var(v)    => { self.env.predefine_global(v); }
+                ModItem::Fn(f)     => { self.env.predefine_function(f); }
+                ModItem::Struct(s) => { self.env.predefine_struct(s); }
             }
         }
+
+        // Cook the outward visible types and update the environment with the
+        // completed information.
+        for item in &mut m.items {
+            match item {
+                ModItem::Struct(s) => {
+                    self.cook_struct(s);
+                    self.env.elaborate_struct(s);
+                }
+                ModItem::Var(v) => {
+                    self.cook_global(v);
+                    self.env.elaborate_global(v);
+                }
+                ModItem::Fn(f) => {
+                    self.cook_function(f);
+                    self.env.elaborate_function(f);
+                }
+            }
+        }
+
+        // Check init expressions and function bodies against the global env and
+        // declared types.
         for item in &mut m.items {
             match item {
                 ModItem::Var(v)    => { self.check_global(v); }
                 ModItem::Fn(f)     => { self.check_function(f); }
-                ModItem::Struct(s) => { }
+                ModItem::Struct(s) => { /* nothing left to do */ }
             }
         }
     }
 
-    fn check_type(&mut self, ty:&mut Type) {
-        let mut replacement_type = None;
-        match ty {
-            Type::RawRef(name) => {
-                match self.env.lookup(&name) {
-                    Some(Binding::Struct(_)) => {
-                        replacement_type = Some(Type::CookedRef(*name));
-                    }
-                    _ => {
-                        panic!("Type reference does not name a type {}", name)
-                    }
-                }
-            },
-            Type::CookedRef(_) => {
-                unreachable!();
-            }
-            _ => { }
-        }
-        if let Some(r) = replacement_type {
-            *ty = r;
-        }
+    fn cook_struct(&mut self, s:&mut StructDef) {
+        check_unique_names(&s.fields, |(name,_)| *name, "field");
+        (&mut s.fields).into_iter().for_each(|(_,ty)| self.check_type(ty));
     }
 
-    fn check_type_or_void(&mut self, ty:&mut Option<Type>) {
-        match ty {
-            None => { }
-            Some(ty) => { self.check_type(ty); }
-        }
+    fn cook_global(&mut self, g:&mut GlobalVar) {
+        self.check_type(&mut g.ty);
     }
-
-    fn check_unique_names<T>(xs:&Vec<T>, val:fn(&T)->Id, context:&str) {
-        let mut names = HashSet::<Id>::new();
-        for v in xs {
-            let name = val(&v);
-            if names.contains(&name) {
-                panic!("Duplicate {} name {}", context, name);
-            }
-            names.insert(name);
-        }
-    }
-
-    fn bind_global(&mut self, g:&mut GlobalVar) {
-        if self.env.toplevel.probe(&g.name) {
-            panic!("Multiply defined top-level name {}", g.name);
-        }
-        self.env.define_global(g);
-    }
-
+    
     fn check_global(&mut self, g:&mut GlobalVar) {
+        if (g.exported || g.imported) && is_ref_type(Some(g.ty)) {
+            panic!("Non-private global can't be of ref type (yet)");
+        }
+
         if !g.imported {
-            self.check_type(&mut g.ty);
-
-            if (g.exported || g.imported) && is_ref_type(Some(g.ty)) {
-                panic!("Non-private global can't be of ref type (yet)");
-            }
-
             self.check_const_expr(&mut g.init);
             if !is_same_type(Some(g.ty), g.init.ty) {
                 panic!("Init expression type mismatch");
@@ -155,19 +115,13 @@ impl Check
         }
     }
 
-    fn bind_function(&mut self, f:&mut FnDef) {
-        if self.env.toplevel.probe(&f.name) {
-            panic!("Multiply defined top-level name {}", f.name);
-        }
-        self.env.define_function(f);
-    }
-    
-    fn check_function(&mut self, f:&mut FnDef) {
-        Check::check_unique_names(&f.formals, |(name,_)| *name, "parameter");
-
+    fn cook_function(&mut self, f:&mut FnDef) {
+        check_unique_names(&f.formals, |(name,_)| *name, "parameter");
         (&mut f.formals).into_iter().for_each(|(_,ty)| self.check_type(ty));
         self.check_type_or_void(&mut f.retn);
+    }
 
+    fn check_function(&mut self, f:&mut FnDef) {
         if (f.exported || f.imported) &&
             (is_ref_type(f.retn) || (&f.formals).into_iter().any(|(_,ty)| is_ref_type(Some(*ty))))
         {
@@ -331,12 +285,18 @@ impl Check
                     Unop::Sqrt | Unop::Ceil | Unop::Floor | Unop::Nearest | Unop::Trunc |
                     Unop::I32ToI64 | Unop::U32ToI64 | Unop::I64ToI32 =>
                     {
-                        panic!("Unary operator should not be present at this stage");
+                        unreachable!();
                     }
                 }
                 expr.ty = e.ty;
             }
             Uxpr::Typeop{..} => {
+                // the rhs must be the name of a struct type or anyref
+                // the type of the lhs must be a struct type or anyref
+                // if the type of the lhs and rhs are both some struct, then they must
+                // be the same struct
+                // For "is", the result is bool
+                // For "as", the result is rhs
                 panic!("NYI");
             }
             Uxpr::Call{name, actuals} => {
@@ -389,7 +349,7 @@ impl Check
                         panic!("No first-class functions");
                     }
                     Some(Binding::Struct(_)) => {
-                        panic!("NYI");
+                        panic!("No first-class types");
                     }
                     None => {
                         panic!("Reference to unknown variable {}", id)
@@ -397,9 +357,17 @@ impl Check
                 }
             }
             Uxpr::Deref{base, field} => {
+                // Base must have type (ref S)
+                // S must have a field with the given name
+                // The result type is the type of that field
                 panic!("NYI");
             }
             Uxpr::New{ty_name, values} => {
+                // The ty_name must name a struct type
+                // The field names in the list of values must be distinct
+                // The field names in the list of values must match the struct's fields exactly
+                // The expression types must match the field types exactly
+                // The result type is (ref ty_name)
                 panic!("NYI");
             }
             Uxpr::Assign{lhs, rhs} => {
@@ -419,6 +387,10 @@ impl Check
                         }
                     }
                     LValue::Field{base,field} => {
+                        // Base must have type (ref S)
+                        // S must have a field with the given name
+                        // the expression must have type that matches that of the field
+                        // The result type is void
                         panic!("NYI");
                     }
                 }
@@ -428,5 +400,46 @@ impl Check
                 unreachable!();
             }
         }
+    }
+
+    fn check_type(&mut self, ty:&mut Type) {
+        let mut replacement_type = None;
+        match ty {
+            Type::RawRef(name) => {
+                match self.env.lookup(&name) {
+                    Some(Binding::Struct(_)) => {
+                        replacement_type = Some(Type::CookedRef(*name));
+                    }
+                    _ => {
+                        panic!("Type reference does not name a type {}", name)
+                    }
+                }
+            },
+            Type::CookedRef(_) => {
+                unreachable!();
+            }
+            _ => { }
+        }
+        if let Some(r) = replacement_type {
+            *ty = r;
+        }
+    }
+
+    fn check_type_or_void(&mut self, ty:&mut Option<Type>) {
+        match ty {
+            None => { }
+            Some(ty) => { self.check_type(ty); }
+        }
+    }
+}
+
+fn check_unique_names<T>(xs:&Vec<T>, val:fn(&T)->Id, context:&str) {
+    let mut names = HashSet::<Id>::new();
+    for v in xs {
+        let name = val(&v);
+        if names.contains(&name) {
+            panic!("Duplicate {} name {}", context, name);
+        }
+        names.insert(name);
     }
 }

@@ -112,16 +112,41 @@ impl<T> ToplevelEnv<T>
         }
     }
 
+    pub fn remove(&mut self, name:&Id) {
+        self.env.remove(name);
+    }
+
     pub fn insert_function(&mut self, name:&Id, param_types:Vec<Type>, retn:Option<Type>) {
         self.env.insert(name.clone(), Binding::GlobalFun(Rc::new((param_types, retn))));
+    }
+
+    pub fn is_function(&self, name:&Id) -> bool {
+        match self.env.get(name) {
+            Some(Binding::GlobalFun(_)) => true,
+            _ => false
+        }
     }
 
     pub fn insert_global(&mut self, name:&Id, mutable:bool, ty:Type) {
         self.env.insert(name.clone(), Binding::GlobalVar(mutable, ty));
     }
 
+    pub fn is_global(&self, name:&Id) -> bool {
+        match self.env.get(name) {
+            Some(Binding::GlobalVar(_,_)) => true,
+            _ => false
+        }
+    }
+
     pub fn insert_struct(&mut self, name:&Id, fields:Vec<(Id,Type)>) {
         self.env.insert(name.clone(), Binding::Struct(Rc::new((name.clone(),fields))));
+    }
+
+    pub fn is_struct(&self, name:&Id) -> bool {
+        match self.env.get(name) {
+            Some(Binding::Struct(_)) => true,
+            _ => false
+        }
     }
 }
 
@@ -214,6 +239,39 @@ impl<T> Env<T>
         }
     }
 
+    pub fn predefine_global(&mut self, g:&GlobalVar) {
+        assert!(!self.toplevel.probe(&g.name));
+        self.toplevel.insert_global(&g.name, false, Type::I32);
+    }
+
+    pub fn elaborate_global(&mut self, g:&GlobalVar) {
+        assert!(self.toplevel.is_global(&g.name));
+        self.toplevel.remove(&g.name);
+        self.define_global(g);
+    }
+
+    pub fn predefine_function(&mut self, f:&FnDef) {
+        assert!(!self.toplevel.probe(&f.name));
+        self.toplevel.insert_function(&f.name, vec![], None);
+    }
+
+    pub fn elaborate_function(&mut self, f:&FnDef) {
+        assert!(self.toplevel.is_function(&f.name));
+        self.toplevel.remove(&f.name);
+        self.define_function(f);
+    }
+
+    pub fn predefine_struct(&mut self, s:&StructDef) {
+        assert!(!self.toplevel.probe(&s.name));
+        self.toplevel.insert_struct(&s.name, vec![]);
+    }
+
+    pub fn elaborate_struct(&mut self, s:&StructDef) {
+        assert!(self.toplevel.is_struct(&s.name));
+        self.toplevel.remove(&s.name);
+        self.define_struct(s);
+    }
+
     pub fn define_global(&mut self, g:&GlobalVar) {
         assert!(!self.toplevel.probe(&g.name));
         self.toplevel.insert_global(&g.name, g.mutable, g.ty);
@@ -229,7 +287,7 @@ impl<T> Env<T>
         assert!(!self.toplevel.probe(&g.name));
         self.toplevel.insert_struct(&g.name, g.fields.clone());
     }
-
+    
     pub fn define_toplevel(&mut self, item:&ModItem) {
         match item {
             ModItem::Var(v)    => { self.define_global(v) }
