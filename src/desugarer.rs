@@ -172,6 +172,9 @@ impl<'a> Desugarer<'a>
                     _ => { }
                 }
             }
+            Uxpr::Typeop{..} => {
+                panic!("NYI");
+            }
             Uxpr::Call{name, actuals} => {
                 for actual in &mut *actuals {
                     self.desugar_expr(actual);

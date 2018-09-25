@@ -21,6 +21,17 @@
 // In the future, it may also insert explicit casts where they are implicit,
 // rewriting the expression tree as required.
 
+// TODO for functions and globals
+//  - can reference struct names, implicitly (ref S)
+//  - but not if an exported entity or stored in an exported/imported table
+//
+// TODO for structs
+//  - no field names are multiply defined in a struct
+//  - all field names reference known types
+//
+// TODO: downcast op from anyref to struct type (`as`?)
+// TODO: ditto testing op (`is`?)
+
 use ast::*;
 use environment::*;
 use std::collections::HashSet;
@@ -44,21 +55,80 @@ impl Check
     }
 
     fn check_module(&mut self, m:&mut Module) {
+        // We must bind struct names first so that every subsequent cooking
+        // operation knows whether it's a struct type.  But the structs
+        // don't actually need to be bound in a the final env. 
+
+        // We can do imperative stuff (refcell), or we can have a replace step,
+        // which also works ok - the data structures are small.
+        
+        // This will all change actually.  We need to rewrite all types in
+        // all toplevel items as we cook them, so having a single "define" thing
+        // that's once and for all, is no more.
+        //
+        // So now we need to rewrite things in data structures we don't own...
+
+        // For structs, pass 1:
+        //   - defines the name
+        //   - checks that fields do not have duplicate names
+        // Then for pass 2
+        //   - define the names
+        //   - check that function prototypes and global vars
+        //     reference meaningful types, and cook those types
+        //   - check that struct field names reference meaningful
+        //     types, and cook the fields types
+        // Then we do pass 3, for globals and functions, to compute
+        // expression types
+/*
+        for item in &mut m.items {
+            if let ModItem::Struct(s) = item {
+                self.bind_struct(s);
+                self.check_unique_names(&s.fields, "field");
+            }
+        }
+*/
         for item in &mut m.items {
             match item {
                 ModItem::Var(v)    => { self.bind_global(v); }
                 ModItem::Fn(f)     => { self.bind_function(f); }
-                ModItem::Struct(s) => { panic!("NYI"); }
+                ModItem::Struct(s) => { panic!("NYI") }
             }
         }
         for item in &mut m.items {
             match item {
                 ModItem::Var(v)    => { self.check_global(v); }
                 ModItem::Fn(f)     => { self.check_function(f); }
-                ModItem::Struct(s) => { panic!("NYI"); }
+                ModItem::Struct(s) => { }
             }
         }
     }
+
+    fn check_type(&mut self, ty:&mut Type) {
+        panic!("NYI");
+        /*
+        let replacement_type = None
+        match ty {
+            Some(Type::RawRef(name)) => {
+                // FIXME: look up name, check that it's a type
+                replacement_type = Some(Type::CookedRef(name));
+            }
+            _ => { }
+        }
+         */
+    }
+
+/*
+    fn check_unique_names<T>(xs:&Vec<T>, val:fn(&T)->Id context:&str) {
+        let mut names = HashSet::<String>::new();
+        for v in xs {
+            let name = val(&v);
+            if names.contains(&name.name) {
+                panic!("Duplicate {} name {}", context, param_name);
+            }
+            names.insert(name.name);
+        }
+    }
+     */
 
     fn bind_global(&mut self, g:&mut GlobalVar) {
         if self.env.toplevel.probe(&g.name) {
@@ -69,6 +139,7 @@ impl Check
 
     fn check_global(&mut self, g:&mut GlobalVar) {
         if !g.imported {
+            self.check_type(&mut g.ty);
             self.check_const_expr(&mut g.init);
             if !is_same_type(Some(g.ty), g.init.ty) {
                 panic!("Init expression type mismatch");
@@ -253,6 +324,9 @@ impl Check
                 }
                 expr.ty = e.ty;
             }
+            Uxpr::Typeop{..} => {
+                panic!("NYI");
+            }
             Uxpr::Call{name, actuals} => {
                 for actual in &mut *actuals {
                     self.check_expr(actual);
@@ -301,6 +375,9 @@ impl Check
                     }
                     Some(Binding::GlobalFun(_)) | Some(Binding::Intrinsic(_, _)) => {
                         panic!("No first-class functions");
+                    }
+                    Some(Binding::Struct(_)) => {
+                        panic!("NYI");
                     }
                     None => {
                         panic!("Reference to unknown variable {}", id)

@@ -1,13 +1,13 @@
 // -*- fill-column: 80 -*-
 
-use ast::{Binop, FnDef, GlobalVar, Id, ModItem, Type, Unop};
+use ast::{Binop, FnDef, GlobalVar, Id, ModItem, StructDef, Type, Unop};
 use std::clone::Clone;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
 pub type Signature = (Vec<Type>, Option<Type>);
-
+pub type Struct = (Id, Vec<(Id,Type)>);
 pub type Intrinsic = Vec<Rc<Signature>>;
 
 #[derive(Clone, Copy)]
@@ -22,6 +22,7 @@ pub enum Intrin {
 pub enum Binding<T : Clone> {
     GlobalVar(bool, Type),
     GlobalFun(Rc<Signature>),
+    Struct(Rc<Struct>),
     Intrinsic(Rc<Intrinsic>, Intrin),
     Local(T),
     Label
@@ -117,6 +118,10 @@ impl<T> ToplevelEnv<T>
 
     pub fn insert_global(&mut self, name:&Id, mutable:bool, ty:Type) {
         self.env.insert(name.name.clone(), Binding::GlobalVar(mutable, ty));
+    }
+
+    pub fn insert_struct(&mut self, name:&Id, fields:Vec<(Id,Type)>) {
+        self.env.insert(name.name.clone(), Binding::Struct(Rc::new((name.clone(),fields))));
     }
 }
 
@@ -220,11 +225,16 @@ impl<T> Env<T>
         self.toplevel.insert_function(&f.name, param_types, f.retn);
     }
 
+    pub fn define_struct(&mut self, g:&StructDef) {
+        assert!(!self.toplevel.probe(&g.name));
+        self.toplevel.insert_struct(&g.name, g.fields.clone());
+    }
+
     pub fn define_toplevel(&mut self, item:&ModItem) {
         match item {
             ModItem::Var(v)    => { self.define_global(v) }
             ModItem::Fn(f)     => { self.define_function(f); }
-            ModItem::Struct(s) => { panic!("NYI"); }
+            ModItem::Struct(s) => { self.define_struct(s); }
         }
     }
 }

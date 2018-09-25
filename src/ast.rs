@@ -1,3 +1,5 @@
+/* -*- fill-column: 80 -*- */
+
 use std::fmt;
 
 #[derive(Debug)]
@@ -87,13 +89,31 @@ impl fmt::Display for Id {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+// Not PartialEq so that we can avoid accidentally comparing types with `==`.
+//
+// Actually a real hardship here to be carrying an Id, as it makes the type
+// not copyable...
+//
+// Conceivably CookedRef can carry some copyable identifier; RawRef is harder...
+// We can use some other union than Option for types in the tree, not that
+// I'm sure this simplifies anything...
+// The parser can try to resolve the id by just having a separate mapping...
+
+#[derive(Clone, Debug)]
 pub enum Type {
     I32,
     I64,
     F32,
     F64,
-    AnyRef
+    AnyRef,
+    // RawRef comes from the parser, Id could be anything; it is eliminated by
+    // the type checker, and type comparison algorithms will abort on
+    // encountering it.
+    RawRef(Id),
+    // CookedRef is produced by the type checker, Id is known to reference a
+    // global type defn that is not shadowed by a local binding, and type
+    // comparison need not consider environments.
+    CookedRef(Id)
 }
 
 // Binops have equal operand types and result type
@@ -154,6 +174,12 @@ pub enum Unop {
     I64ToI32,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum Typeop {
+    Is,
+    As,
+}
+
 #[derive(Debug)]
 pub struct Expr {
     // `ty` is stable after type checking.
@@ -179,6 +205,7 @@ pub enum Uxpr {
     Block(Block),
     Binop{op:Binop, lhs:Box<Expr>, rhs:Box<Expr>},
     Unop{op:Unop, e:Box<Expr>},
+    Typeop{op:Typeop, lhs:Box<Expr>, rhs:Type},
     Assign{lhs:LValue, rhs:Box<Expr>},
     Call{name:Id, actuals:Vec<Box<Expr>>},
 
@@ -218,6 +245,10 @@ pub fn box_unop(ty:Option<Type>, op:Unop, e:Box<Expr>) -> Box<Expr> {
     Box::new(Expr{ ty, u: Uxpr::Unop{ op, e } })
 }
 
+pub fn box_typeop(ty:Option<Type>, op:Typeop, lhs:Box<Expr>, rhs:Type) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::Typeop{ op, lhs, rhs } })
+}
+
 pub fn box_binop(ty:Option<Type>, op:Binop, lhs:Box<Expr>, rhs:Box<Expr>) -> Box<Expr> {
     Box::new(Expr{ ty, u: Uxpr::Binop{ op, lhs, rhs } })
 }
@@ -235,7 +266,7 @@ pub fn box_empty_sequence() -> Box<Expr> {
 }
 
 pub fn box_sequence(ty:Option<Type>, body:Vec<Box<Expr>>) -> Box<Expr> {
-    Box::new(Expr{ ty, u: Uxpr::Sequence{ty, body}})
+    Box::new(Expr{ ty: ty.clone(), u: Uxpr::Sequence{ty, body}})
 }
 
 pub fn box_break(label:&Id) -> Box<Expr> {
@@ -301,25 +332,48 @@ pub fn is_same_type(t1:Option<Type>, t2:Option<Type>) -> bool {
         (None, None) => true,
         (None, _)    => false,
         (_, None)    => false,
-        (Some(t1), Some(t2)) => t1 == t2
+        (Some(Type::I32), Some(Type::I32)) => true,
+        (Some(Type::I64), Some(Type::I64)) => true,
+        (Some(Type::F32), Some(Type::F32)) => true,
+        (Some(Type::F64), Some(Type::F64)) => true,
+        (Some(Type::CookedRef(name1)), Some(Type::CookedRef(name2))) => name1 == name2,
+        (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
+        (Some(_), Some(Type::RawRef(_))) => unreachable!(),
+        (_, _) => false
     }
 }
 
 pub fn is_int_type(t1:Option<Type>) -> bool {
     match t1 {
+        None => false,
         Some(Type::I32) | Some(Type::I64) => true,
-        _ => false
+        Some(Type::F32) | Some(Type::F64) => false,
+        Some(Type::AnyRef) => false,
+        Some(Type::CookedRef(_)) => false,
+        Some(Type::RawRef(_)) => unreachable!()
     }
 }
 
 pub fn is_i32_type(t1:Option<Type>) -> bool {
-    is_same_type(t1, Some(Type::I32))
+    match t1 {
+        None => false,
+        Some(Type::I32) => true,
+        Some(Type::I64) => false,
+        Some(Type::F32) | Some(Type::F64) => false,
+        Some(Type::AnyRef) => false,
+        Some(Type::CookedRef(_)) => false,
+        Some(Type::RawRef(_)) => unreachable!()
+    }
 }
 
 pub fn is_float_type(t1:Option<Type>) -> bool {
     match t1 {
+        None => false,
+        Some(Type::I32) | Some(Type::I64) => false,
         Some(Type::F32) | Some(Type::F64) => true,
-        _ => false
+        Some(Type::AnyRef) => false,
+        Some(Type::CookedRef(_)) => false,
+        Some(Type::RawRef(_)) => unreachable!()
     }
 }
 
@@ -333,7 +387,11 @@ pub fn is_value_type(t1:Option<Type>) -> bool {
 
 pub fn is_ref_type(t1:Option<Type>) -> bool {
     match t1 {
+        None => false,
+        Some(Type::I32) | Some(Type::I64) => false,
+        Some(Type::F32) | Some(Type::F64) => false,
         Some(Type::AnyRef) => true,
-        _ => false
+        Some(Type::CookedRef(_)) => true,
+        Some(Type::RawRef(_)) => unreachable!()
     }
 }

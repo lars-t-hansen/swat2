@@ -69,7 +69,8 @@ Type: Type = {
     "i64" => Type::I64,
     "f32" => Type::F32,
     "f64" => Type::F64,
-    "anyref" => Type::AnyRef
+    "anyref" => Type::AnyRef,
+    <name:Id> => Type::RawRef(name)
 }
 
 Id: Id = {
@@ -123,7 +124,7 @@ Relop: Binop = {
     ">u"  => Binop::UGreater,
     ">=u" => Binop::UGreaterOrEqual,
     "=="  => Binop::Equal,
-    "!="  => Binop::NotEqual
+    "!="  => Binop::NotEqual,
 }
 
 BitOrExpr: Box<Expr> = {
@@ -149,7 +150,7 @@ BitShiftExpr: Box<Expr> = {
 Shiftop: Binop = {
     "<<" => Binop::ShiftLeft,
     ">>" => Binop::ShiftRight,
-    ">>u" => Binop::UShiftRight
+    ">>u" => Binop::UShiftRight,
 }
 
 AddExpr: Box<Expr> = {
@@ -159,7 +160,7 @@ AddExpr: Box<Expr> = {
 
 Addop: Binop = {
     "+" => Binop::Add,
-    "-" => Binop::Sub
+    "-" => Binop::Sub,
 }
 
 MulExpr: Box<Expr> = {
@@ -172,7 +173,7 @@ Mulop: Binop = {
     "/" => Binop::Div,
     "%" => Binop::Rem,
     "/u" => Binop::UDiv,
-    "%u" => Binop::URem
+    "%u" => Binop::URem,
 }
 
 UnaryExpr: Box<Expr> = {
@@ -180,6 +181,17 @@ UnaryExpr: Box<Expr> = {
     "~" <e:UnaryExpr> => box_unop(None, Unop::BitNot, e),
     "-" <e:UnaryExpr> => box_unop(None, Unop::Neg, e),
     PrimaryExpr
+}
+
+TypeExpr: Box<Expr> = {
+    <lhs:TypeExpr> <op:Typeop> <rhs:Type> => {
+        box_typeop(None, op, lhs, rhs)
+    }
+}
+
+Typeop: Typeop = {
+    "as" => Typeop::As,
+    "is" => Typeop::Is,
 }
 
 PrimaryExpr: Box<Expr> = {

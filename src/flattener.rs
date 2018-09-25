@@ -171,6 +171,9 @@ impl<'a> Flatten<'a>
             Uxpr::Unop{e, ..} => {
                 self.flatten_expr(e);
             }
+            Uxpr::Typeop{..} => {
+                panic!("NYI");
+            }
             Uxpr::Call{actuals, ..} => {
                 for actual in &mut *actuals {
                     self.flatten_expr(actual);

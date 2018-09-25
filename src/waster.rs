@@ -144,6 +144,9 @@ impl<'a> Waster<'a>
                 self.wast_expr(&e);
                 self.emit(")");
             }
+            Uxpr::Typeop{..} => {
+                panic!("NYI");
+            }
             Uxpr::Call{name, actuals} => {
                 self.emit(&format!("(call ${} ", &name));
                 for arg in actuals {
@@ -211,14 +214,16 @@ fn maybe_export(exported: bool, name:&Id) -> String {
     }
 }
 
-fn render_type(ty:Option<Type>) -> &'static str {
+fn render_type(ty:Option<Type>) -> String {
     match ty {
-        Some(Type::I32) => "i32",
-        Some(Type::I64) => "i64",
-        Some(Type::F32) => "f32",
-        Some(Type::F64) => "f64",
-        Some(Type::AnyRef) => "anyref",
-        None => ""
+        Some(Type::I32) => "i32".to_string(),
+        Some(Type::I64) => "i64".to_string(),
+        Some(Type::F32) => "f32".to_string(),
+        Some(Type::F64) => "f64".to_string(),
+        Some(Type::AnyRef) => "anyref".to_string(),
+        Some(Type::CookedRef(id)) => format!("(ref ${})", id),
+        Some(Type::RawRef(_)) => unreachable!(),
+        None => "".to_string()
     }
 }
 
@@ -229,6 +234,8 @@ fn render_op_type(ty:Option<Type>) -> &'static str {
         Some(Type::F32) => "f32",
         Some(Type::F64) => "f64",
         Some(Type::AnyRef) => "ref",
+        Some(Type::CookedRef(_)) => "ref",
+        Some(Type::RawRef(_)) => unreachable!(),
         None => unreachable!()
     }
 }
