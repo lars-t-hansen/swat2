@@ -1,6 +1,8 @@
 /* -*- fill-column: 80 -*- */
 
 use std::fmt;
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Program {
@@ -72,34 +74,74 @@ pub struct LetDefn {
     pub init: Box<Expr>
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Id {
-    pub name: String
+// It's important that Id is Copy so that Type can be Copy.  To that end, we
+// store a name index in the Id, so as not to carry an RC value around and
+// require it to be cloned or expensively copied everywhere.
+//
+// As a side effect, environments can map Ids directly, not having to go via
+// strings.
+
+thread_local! {
+    // IdTable maps strings to IDs
+    static IdTable: RefCell<HashMap<String,usize>> = RefCell::new(HashMap::new());
+
+    // IdNames maps IDs to strings
+    static IdNames: RefCell<Vec<String>> = RefCell::new(vec![]);
+
+    // GensymCounter is used to generate unique names
+    static GensymCounter: RefCell<usize> = RefCell::new(1000);
+}
+
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Id
+{
+    name: usize                 // Reference into a string table
 }
 
 impl Id {
+    pub fn intern(name:&str) -> Id {
+        IdTable.with(|tbl| {
+            if let Some(k) = tbl.borrow().get(name) {
+                return Id { name: *k };
+            }
+
+            IdNames.with(|names| {
+                let mut names = names.borrow_mut();
+                let k = names.len();
+                names.push(name.to_string());
+                tbl.borrow_mut().insert(name.to_string(), k);
+                Id { name: k }
+            })
+        })
+    }
+
+    pub fn gensym(tag:&str) -> Id {
+        GensymCounter.with(|counter| {
+            let mut counter = counter.borrow_mut();
+            let k = *counter;
+            *counter += 1;
+            Id::intern(&format!("_{}_{}", tag, k))
+        })
+    }
+
     pub fn is(&self, x:&str) -> bool {
-        self.name == x
+        *self == Id::intern(x)
+    }
+
+    pub fn name(&self) -> String {
+        IdNames.with(|names| { names.borrow()[self.name].clone() })
     }
 }
 
 impl fmt::Display for Id {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "{}", self.name())
     }
 }
 
 // Not PartialEq so that we can avoid accidentally comparing types with `==`.
-//
-// Actually a real hardship here to be carrying an Id, as it makes the type
-// not copyable...
-//
-// Conceivably CookedRef can carry some copyable identifier; RawRef is harder...
-// We can use some other union than Option for types in the tree, not that
-// I'm sure this simplifies anything...
-// The parser can try to resolve the id by just having a separate mapping...
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Type {
     I32,
     I64,

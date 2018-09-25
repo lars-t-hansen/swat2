@@ -83,7 +83,7 @@ impl<'a> Flatten<'a>
             match item {
                 BlockItem::Let(l) => {
                     self.flatten_expr(&mut l.init);
-                    let new_name = self.context.gensym(&l.name.name); // FIXME: dodgy? what if name is "loop", say?
+                    let new_name = Id::gensym(&l.name.name()); // FIXME: dodgy? what if name is "loop", say?
                     let mut new_init = box_void();
                     swap(&mut l.init, &mut new_init);
                     new_exprs.push(box_set_local(&new_name, new_init));

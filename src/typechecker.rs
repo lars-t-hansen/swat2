@@ -139,7 +139,7 @@ impl Check
 
     fn check_global(&mut self, g:&mut GlobalVar) {
         if !g.imported {
-            self.check_type(&mut g.ty);
+//            self.check_type(&mut g.ty);
             self.check_const_expr(&mut g.init);
             if !is_same_type(Some(g.ty), g.init.ty) {
                 panic!("Init expression type mismatch");
@@ -159,10 +159,10 @@ impl Check
 
         let mut param_names = HashSet::<String>::new();
         for (param_name, param_type) in &f.formals {
-            if param_names.contains(&param_name.name) {
+            if param_names.contains(&param_name.name()) {
                 panic!("Duplicate parameter name {}", param_name);
             }
-            param_names.insert(param_name.name.clone());
+            param_names.insert(param_name.name().clone());
             self.env.locals.add_param(param_name, *param_type);
         }
 

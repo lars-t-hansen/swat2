@@ -30,7 +30,7 @@ pub enum Binding<T : Clone> {
 
 pub struct IntrinsicEnv<T : Clone>
 {
-    intrinsics:      HashMap<String, (Rc<Intrinsic>, Intrin)>,
+    intrinsics:      HashMap<Id, (Rc<Intrinsic>, Intrin)>,
     binding_payload: PhantomData<T>
 }
 
@@ -55,25 +55,25 @@ impl<T> IntrinsicEnv<T>
         let ff_to_f = Rc::new(vec![Rc::new((vec![Type::F32, Type::F32], Some(Type::F32))),
                                    Rc::new((vec![Type::F64, Type::F64], Some(Type::F64)))]);
 
-        intrinsics.insert("clz".to_string(),    (i_to_i.clone(), Intrin::Unop(Unop::Clz)));
-        intrinsics.insert("ctz".to_string(),    (i_to_i.clone(), Intrin::Unop(Unop::Ctz)));
-        intrinsics.insert("popcnt".to_string(), (i_to_i.clone(), Intrin::Unop(Unop::Popcnt)));
-        intrinsics.insert("eqz".to_string(),    (i_to_i.clone(), Intrin::Unop(Unop::Eqz)));
+        intrinsics.insert(Id::intern("clz"),    (i_to_i.clone(), Intrin::Unop(Unop::Clz)));
+        intrinsics.insert(Id::intern("ctz"),    (i_to_i.clone(), Intrin::Unop(Unop::Ctz)));
+        intrinsics.insert(Id::intern("popcnt"), (i_to_i.clone(), Intrin::Unop(Unop::Popcnt)));
+        intrinsics.insert(Id::intern("eqz"),    (i_to_i.clone(), Intrin::Unop(Unop::Eqz)));
 
-        intrinsics.insert("sqrt".to_string(),    (f_to_f.clone(), Intrin::Unop(Unop::Sqrt)));
-        intrinsics.insert("ceil".to_string(),    (f_to_f.clone(), Intrin::Unop(Unop::Ceil)));
-        intrinsics.insert("floor".to_string(),   (f_to_f.clone(), Intrin::Unop(Unop::Floor)));
-        intrinsics.insert("nearest".to_string(), (f_to_f.clone(), Intrin::Unop(Unop::Nearest)));
-        intrinsics.insert("trunc".to_string(),   (f_to_f.clone(), Intrin::Unop(Unop::Trunc)));
+        intrinsics.insert(Id::intern("sqrt"),    (f_to_f.clone(), Intrin::Unop(Unop::Sqrt)));
+        intrinsics.insert(Id::intern("ceil"),    (f_to_f.clone(), Intrin::Unop(Unop::Ceil)));
+        intrinsics.insert(Id::intern("floor"),   (f_to_f.clone(), Intrin::Unop(Unop::Floor)));
+        intrinsics.insert(Id::intern("nearest"), (f_to_f.clone(), Intrin::Unop(Unop::Nearest)));
+        intrinsics.insert(Id::intern("trunc"),   (f_to_f.clone(), Intrin::Unop(Unop::Trunc)));
 
-        intrinsics.insert("i32_to_i64".to_string(), (i_to_l.clone(), Intrin::Unop(Unop::I32ToI64)));
-        intrinsics.insert("u32_to_i64".to_string(), (i_to_l.clone(), Intrin::Unop(Unop::U32ToI64)));
-        intrinsics.insert("i64_to_i32".to_string(), (l_to_i.clone(), Intrin::Unop(Unop::I64ToI32)));
+        intrinsics.insert(Id::intern("i32_to_i64"), (i_to_l.clone(), Intrin::Unop(Unop::I32ToI64)));
+        intrinsics.insert(Id::intern("u32_to_i64"), (i_to_l.clone(), Intrin::Unop(Unop::U32ToI64)));
+        intrinsics.insert(Id::intern("i64_to_i32"), (l_to_i.clone(), Intrin::Unop(Unop::I64ToI32)));
 
-        intrinsics.insert("rotl".to_string(), (ii_to_i.clone(), Intrin::Binop(Binop::RotLeft)));
-        intrinsics.insert("rotr".to_string(), (ii_to_i.clone(), Intrin::Binop(Binop::RotRight)));
+        intrinsics.insert(Id::intern("rotl"), (ii_to_i.clone(), Intrin::Binop(Binop::RotLeft)));
+        intrinsics.insert(Id::intern("rotr"), (ii_to_i.clone(), Intrin::Binop(Binop::RotRight)));
 
-        intrinsics.insert("copysign".to_string(), (ff_to_f.clone(), Intrin::Binop(Binop::Copysign)));
+        intrinsics.insert(Id::intern("copysign"), (ff_to_f.clone(), Intrin::Binop(Binop::Copysign)));
 
         IntrinsicEnv {
             intrinsics,
@@ -82,7 +82,7 @@ impl<T> IntrinsicEnv<T>
     }
 
     pub fn lookup(&self, name:&Id) -> Option<Binding<T>> {
-        match self.intrinsics.get(&name.name) {
+        match self.intrinsics.get(&name) {
             Some((b, op)) => Some(Binding::Intrinsic(b.clone(), *op)),
             None          => None
         }
@@ -91,7 +91,7 @@ impl<T> IntrinsicEnv<T>
 
 pub struct ToplevelEnv<T : Clone>
 {
-    env: HashMap<String, Binding<T>>
+    env: HashMap<Id, Binding<T>>
 }
 
 impl<T> ToplevelEnv<T>
@@ -102,26 +102,26 @@ impl<T> ToplevelEnv<T>
     }
 
     pub fn probe(&self, name:&Id) -> bool {
-        self.env.contains_key(&name.name)
+        self.env.contains_key(&name)
     }
 
     pub fn lookup(&self, name:&Id) -> Option<Binding<T>> {
-        match self.env.get(&name.name) {
+        match self.env.get(&name) {
             Some(b) => Some(b.clone()),
             None    => None
         }
     }
 
     pub fn insert_function(&mut self, name:&Id, param_types:Vec<Type>, retn:Option<Type>) {
-        self.env.insert(name.name.clone(), Binding::GlobalFun(Rc::new((param_types, retn))));
+        self.env.insert(name.clone(), Binding::GlobalFun(Rc::new((param_types, retn))));
     }
 
     pub fn insert_global(&mut self, name:&Id, mutable:bool, ty:Type) {
-        self.env.insert(name.name.clone(), Binding::GlobalVar(mutable, ty));
+        self.env.insert(name.clone(), Binding::GlobalVar(mutable, ty));
     }
 
     pub fn insert_struct(&mut self, name:&Id, fields:Vec<(Id,Type)>) {
-        self.env.insert(name.name.clone(), Binding::Struct(Rc::new((name.clone(),fields))));
+        self.env.insert(name.clone(), Binding::Struct(Rc::new((name.clone(),fields))));
     }
 }
 

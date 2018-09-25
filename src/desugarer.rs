@@ -103,8 +103,8 @@ impl<'a> Desugarer<'a>
                 let mut new_test = box_void();
                 swap(test, &mut new_test);
 
-                let break_label = self.context.gensym("break");
-                let continue_label = self.context.gensym("continue");
+                let break_label = Id::gensym("break");
+                let continue_label = Id::gensym("continue");
                 let cond_break = box_if(new_test,
                                         box_block(vec![box_void()]),
                                         box_block(vec![box_break(&break_label)]));
@@ -118,7 +118,7 @@ impl<'a> Desugarer<'a>
                 let mut new_body = box_block(vec![]);
                 swap(body, &mut new_body);
 
-                let continue_label = self.context.gensym("continue");
+                let continue_label = Id::gensym("continue");
                 let mut new_expr = box_iterate(&break_label, &continue_label, new_body);
                 self.desugar_expr(&mut new_expr);
                 replacement_expr = Some(new_expr);

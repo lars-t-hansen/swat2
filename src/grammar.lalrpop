@@ -74,9 +74,7 @@ Type: Type = {
 }
 
 Id: Id = {
-    // Here we want to use the string_cache atoms instead, and we want to use those
-    // everywhere, no more strings!
-    <n:Name> => Id{name:n}
+    <n:Name> => Id::intern(&n)
 }
 
 Block: Box<Block> = {
