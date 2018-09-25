@@ -131,7 +131,7 @@ impl<'a> Desugarer<'a>
             Uxpr::Break{..} => { }
             Uxpr::Binop{op, lhs, rhs} => {
                 match op {
-                    Binop::NotEqual if is_ref_type(lhs.ty)  => {
+                    Binop::NotEqual if is_ref_or_anyref_type(lhs.ty)  => {
                         // (ne x y) => (eqz (eq x y))
                         panic!("NYI");
                     }

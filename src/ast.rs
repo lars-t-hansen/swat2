@@ -79,7 +79,7 @@ pub struct LetDefn {
 // require it to be cloned or expensively copied everywhere.
 //
 // As a side effect, environments can map Ids directly, not having to go via
-// strings.
+// strings, and Id comparisons are generally cheaper.
 
 thread_local! {
     // IdTable maps strings to IDs
@@ -427,12 +427,23 @@ pub fn is_value_type(t1:Option<Type>) -> bool {
     !t1.is_none()
 }
 
-pub fn is_ref_type(t1:Option<Type>) -> bool {
+pub fn is_ref_or_anyref_type(t1:Option<Type>) -> bool {
     match t1 {
         None => false,
         Some(Type::I32) | Some(Type::I64) => false,
         Some(Type::F32) | Some(Type::F64) => false,
         Some(Type::AnyRef) => true,
+        Some(Type::CookedRef(_)) => true,
+        Some(Type::RawRef(_)) => unreachable!()
+    }
+}
+
+pub fn is_ref_type(t1:Option<Type>) -> bool {
+    match t1 {
+        None => false,
+        Some(Type::I32) | Some(Type::I64) => false,
+        Some(Type::F32) | Some(Type::F64) => false,
+        Some(Type::AnyRef) => false,
         Some(Type::CookedRef(_)) => true,
         Some(Type::RawRef(_)) => unreachable!()
     }

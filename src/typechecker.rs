@@ -16,21 +16,10 @@
 //   results (0 or 1, for now)
 //
 // It computes types for all expr and block nodes and records those in the
-// nodes.
+// nodes.  It transforms every RawRef type into a CookedRef type.
 //
 // In the future, it may also insert explicit casts where they are implicit,
 // rewriting the expression tree as required.
-
-// TODO for functions and globals
-//  - can reference struct names, implicitly (ref S)
-//  - but not if an exported entity or stored in an exported/imported table
-//
-// TODO for structs
-//  - no field names are multiply defined in a struct
-//  - all field names reference known types
-//
-// TODO: downcast op from anyref to struct type (`as`?)
-// TODO: ditto testing op (`is`?)
 
 use ast::*;
 use environment::*;
@@ -104,31 +93,45 @@ impl Check
     }
 
     fn check_type(&mut self, ty:&mut Type) {
-        panic!("NYI");
-        /*
-        let replacement_type = None
+        let mut replacement_type = None;
         match ty {
-            Some(Type::RawRef(name)) => {
-                // FIXME: look up name, check that it's a type
-                replacement_type = Some(Type::CookedRef(name));
+            Type::RawRef(name) => {
+                match self.env.lookup(&name) {
+                    Some(Binding::Struct(_)) => {
+                        replacement_type = Some(Type::CookedRef(*name));
+                    }
+                    _ => {
+                        panic!("Type reference does not name a type {}", name)
+                    }
+                }
+            },
+            Type::CookedRef(_) => {
+                unreachable!();
             }
             _ => { }
         }
-         */
-    }
-
-/*
-    fn check_unique_names<T>(xs:&Vec<T>, val:fn(&T)->Id context:&str) {
-        let mut names = HashSet::<String>::new();
-        for v in xs {
-            let name = val(&v);
-            if names.contains(&name.name) {
-                panic!("Duplicate {} name {}", context, param_name);
-            }
-            names.insert(name.name);
+        if let Some(r) = replacement_type {
+            *ty = r;
         }
     }
-     */
+
+    fn check_type_or_void(&mut self, ty:&mut Option<Type>) {
+        match ty {
+            None => { }
+            Some(ty) => { self.check_type(ty); }
+        }
+    }
+
+    fn check_unique_names<T>(xs:&Vec<T>, val:fn(&T)->Id, context:&str) {
+        let mut names = HashSet::<Id>::new();
+        for v in xs {
+            let name = val(&v);
+            if names.contains(&name) {
+                panic!("Duplicate {} name {}", context, name);
+            }
+            names.insert(name);
+        }
+    }
 
     fn bind_global(&mut self, g:&mut GlobalVar) {
         if self.env.toplevel.probe(&g.name) {
@@ -139,7 +142,12 @@ impl Check
 
     fn check_global(&mut self, g:&mut GlobalVar) {
         if !g.imported {
-//            self.check_type(&mut g.ty);
+            self.check_type(&mut g.ty);
+
+            if (g.exported || g.imported) && is_ref_type(Some(g.ty)) {
+                panic!("Non-private global can't be of ref type (yet)");
+            }
+
             self.check_const_expr(&mut g.init);
             if !is_same_type(Some(g.ty), g.init.ty) {
                 panic!("Init expression type mismatch");
@@ -155,16 +163,19 @@ impl Check
     }
     
     fn check_function(&mut self, f:&mut FnDef) {
-        self.env.locals.push_rib();
+        Check::check_unique_names(&f.formals, |(name,_)| *name, "parameter");
 
-        let mut param_names = HashSet::<String>::new();
-        for (param_name, param_type) in &f.formals {
-            if param_names.contains(&param_name.name()) {
-                panic!("Duplicate parameter name {}", param_name);
-            }
-            param_names.insert(param_name.name().clone());
-            self.env.locals.add_param(param_name, *param_type);
+        (&mut f.formals).into_iter().for_each(|(_,ty)| self.check_type(ty));
+        self.check_type_or_void(&mut f.retn);
+
+        if (f.exported || f.imported) &&
+            (is_ref_type(f.retn) || (&f.formals).into_iter().any(|(_,ty)| is_ref_type(Some(*ty))))
+        {
+            panic!("Non-private function can't use ref type in signature (yet)");
         }
+
+        self.env.locals.push_rib();
+        (&f.formals).into_iter().for_each(|(name,ty)| self.env.locals.add_param(name, *ty));
 
         if !f.imported {
             self.check_block(&mut f.body);
@@ -183,6 +194,7 @@ impl Check
         for item in &mut b.items {
             match item {
                 BlockItem::Let(l) => {
+                    self.check_type(&mut l.ty);
                     self.check_expr(&mut l.init);
                     if !is_same_type(l.init.ty, Some(l.ty)) {
                         panic!("Initializer does not have same type as variable {}", &l.name);
