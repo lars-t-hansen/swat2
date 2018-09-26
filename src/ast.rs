@@ -23,13 +23,13 @@ pub struct Module {
 
 #[derive(Debug)]
 pub enum ModItem {
-    Var(Box<GlobalVar>),
+    Var(Box<GlobalDef>),
     Fn(Box<FnDef>),
     Struct(Box<StructDef>)
 }
 
 #[derive(Debug)]
-pub struct GlobalVar {
+pub struct GlobalDef {
     pub mutable:bool,
     pub imported:bool,
     pub exported:bool,

@@ -56,7 +56,7 @@ impl<'a> Desugarer<'a>
         }
     }
 
-    fn desugar_global(&mut self, g:&mut GlobalVar) {
+    fn desugar_global(&mut self, g:&mut GlobalDef) {
         self.desugar_expr(&mut g.init);
     }
 

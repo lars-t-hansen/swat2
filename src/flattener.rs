@@ -67,7 +67,7 @@ impl<'a> Flatten<'a>
         panic!("NYI");
     }
 
-    fn flatten_global(&mut self, g:&mut GlobalVar) {
+    fn flatten_global(&mut self, g:&mut GlobalDef) {
         self.flatten_expr(&mut g.init);
     }
 

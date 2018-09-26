@@ -17,12 +17,12 @@ TopItem: TopItem = {
 ModItem: ModItem = {
     "extern" <mutable:VarOrConst> <name:Id> ":" <ty:Type> ";" => {
         let init = Box::new(Expr{ty:None, u:Uxpr::Void});
-        ModItem::Var(Box::new(GlobalVar {mutable, exported:false, imported:true, name, ty, init}))
+        ModItem::Var(Box::new(GlobalDef {mutable, exported:false, imported:true, name, ty, init}))
     },
 
     <v:"pub"?> <mutable:VarOrConst> <name:Id> ":" <ty:Type> "=" <init:Expr> ";" => {
         let exported = if let Some(_) = v { true } else { false };
-        ModItem::Var(Box::new(GlobalVar {mutable, exported, imported:false, name, ty, init}))
+        ModItem::Var(Box::new(GlobalDef {mutable, exported, imported:false, name, ty, init}))
     },
 
     "extern" "fn" <name:Id> "(" <formals:Formals> ")" <retn:Return?> ";" => {

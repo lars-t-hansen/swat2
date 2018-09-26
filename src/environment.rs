@@ -1,6 +1,6 @@
 // -*- fill-column: 80 -*-
 
-use ast::{Binop, FnDef, GlobalVar, Id, ModItem, StructDef, Type, Unop};
+use ast::{Binop, FnDef, GlobalDef, Id, ModItem, StructDef, Type, Unop};
 use std::clone::Clone;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -237,12 +237,12 @@ impl<T> Env<T>
         }
     }
 
-    pub fn predefine_global(&mut self, g:&GlobalVar) {
+    pub fn predefine_global(&mut self, g:&GlobalDef) {
         assert!(!self.toplevel.probe(&g.name));
         self.toplevel.insert_global(&g.name, false, Type::I32);
     }
 
-    pub fn elaborate_global(&mut self, g:&GlobalVar) {
+    pub fn elaborate_global(&mut self, g:&GlobalDef) {
         assert!(self.toplevel.is_global(&g.name));
         self.toplevel.remove(&g.name);
         self.define_global(g);
@@ -270,7 +270,7 @@ impl<T> Env<T>
         self.define_struct(s);
     }
 
-    pub fn define_global(&mut self, g:&GlobalVar) {
+    pub fn define_global(&mut self, g:&GlobalDef) {
         assert!(!self.toplevel.probe(&g.name));
         self.toplevel.insert_global(&g.name, g.mutable, g.ty);
     }

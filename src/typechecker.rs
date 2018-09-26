@@ -98,11 +98,11 @@ impl Check
         (&mut s.fields).into_iter().for_each(|(_,ty)| self.check_type(ty));
     }
 
-    fn cook_global(&mut self, g:&mut GlobalVar) {
+    fn cook_global(&mut self, g:&mut GlobalDef) {
         self.check_type(&mut g.ty);
     }
     
-    fn check_global(&mut self, g:&mut GlobalVar) {
+    fn check_global(&mut self, g:&mut GlobalDef) {
         if (g.exported || g.imported) && is_ref_type(Some(g.ty)) {
             panic!("Non-private global can't be of ref type (yet)");
         }

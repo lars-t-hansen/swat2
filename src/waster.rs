@@ -33,7 +33,7 @@ impl<'a> Waster<'a>
         self.emit(")\n");
     }
 
-    fn wast_global(&mut self, g:&GlobalVar) {
+    fn wast_global(&mut self, g:&GlobalDef) {
         let ty = render_type(Some(g.ty));
         let ty = if g.mutable { format!("(mut {})", ty) } else { ty.to_string() };
         if g.imported {
