@@ -273,8 +273,8 @@ pub enum Uxpr {
     Iterate{break_label:Id, continue_label:Id, body:Box<Block>},
 
     // Introduced by flattening.
-    Local(Id),
-    Global(Id),
+    GetLocal(Id),
+    GetGlobal(Id),
     SetLocal{name:Id, e:Box<Expr>},
     SetGlobal{name:Id, e:Box<Expr>},
     Sequence{ty:Option<Type>, body:Vec<Box<Expr>>},
@@ -340,11 +340,11 @@ pub fn box_iterate(break_label:&Id, continue_label:&Id, body:Box<Block>) -> Box<
 }
 
 pub fn box_get_local(ty:Option<Type>, name:&Id) -> Box<Expr> {
-    Box::new(Expr{ ty, u: Uxpr::Local(name.clone()) })
+    Box::new(Expr{ ty, u: Uxpr::GetLocal(name.clone()) })
 }
 
 pub fn box_get_global(ty:Option<Type>, name:&Id) -> Box<Expr> {
-    Box::new(Expr{ ty, u: Uxpr::Global(name.clone()) })
+    Box::new(Expr{ ty, u: Uxpr::GetGlobal(name.clone()) })
 }
 
 pub fn box_set_local(name:&Id, rhs:Box<Expr>) -> Box<Expr> {

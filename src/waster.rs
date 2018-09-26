@@ -171,10 +171,10 @@ impl<'a> Waster<'a>
                 self.wast_expr(&e);
                 self.emit(")\n");
             }
-            Uxpr::Local(id) => {
+            Uxpr::GetLocal(id) => {
                 self.emit(&format!("(get_local ${})", &id));
             }
-            Uxpr::Global(id) => {
+            Uxpr::GetGlobal(id) => {
                 self.emit(&format!("(get_global ${})", &id));
             }
             Uxpr::SetLocal{name, e} => {
