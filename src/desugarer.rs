@@ -19,28 +19,24 @@
 // leave behind new instances of any of the forms it is trying to remove.
 
 use ast::*;
-use context::Context;
 use environment::*;
 use std::mem::swap;
 
-pub fn desugar(context:&mut Context, m:&mut Module) {
-    let mut de = Desugarer::new(context);
+pub fn desugar(m:&mut Module) {
+    let mut de = Desugarer::new();
     de.desugar_module(m);
 }
 
-struct Desugarer<'a> {
-    context: &'a mut Context,
-
+struct Desugarer {
     // The carried Type value is not used here, we use environments simply to
     // discover whether something is an intrinsic or not.
     env:     Env<Type>
 }
 
-impl<'a> Desugarer<'a>
+impl Desugarer
 {
-    fn new(context: &'a mut Context) -> Desugarer<'a> {
+    fn new() -> Desugarer {
         Desugarer {
-            context,
             env: Env::new()
         }
     }

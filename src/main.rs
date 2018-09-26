@@ -5,7 +5,6 @@
 lalrpop_mod!(pub grammar);
 
 mod ast;
-mod context;
 mod desugarer;
 mod environment;
 mod flattener;
@@ -50,10 +49,9 @@ fn compile_file(infilename:&str)
     for item in &mut prog.items {
         match item {
             ast::TopItem::Mod(m) => {
-                let mut cx = context::Context::new();
                 typechecker::check(m);
-                desugarer::desugar(&mut cx, m);
-                flattener::flatten(&mut cx, m);
+                desugarer::desugar(m);
+                flattener::flatten(m);
                 waster::wast(m, &mut wastfile);
             }
             ast::TopItem::Js(s) => {

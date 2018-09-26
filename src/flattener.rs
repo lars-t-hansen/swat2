@@ -14,19 +14,16 @@
 //  - void expressions have been removed, replaced by empty Block expressions
 
 use ast::*;
-use context::Context;
 use environment::*;
 use std::mem::swap;
 
-pub fn flatten(cx:&mut Context, m:&mut Module) {
-    let mut f = Flatten::new(cx);
+pub fn flatten(m:&mut Module) {
+    let mut f = Flatten::new();
     f.flatten_module(m);
 }
 
-struct Flatten<'a>
+struct Flatten
 {
-    context:    &'a mut Context,
-
     // Environments map names to their alpha-renamings, which are identity for
     // globals and parameters.  Intrinsics don't have renamings.
     env:        Env<Id>,
@@ -36,11 +33,10 @@ struct Flatten<'a>
     localdefs:  Vec<(Id,Type)>,
 }
 
-impl<'a> Flatten<'a>
+impl Flatten
 {
-    fn new(context:&'a mut Context) -> Flatten<'a> {
+    fn new() -> Flatten {
         Flatten {
-            context,
             env:       Env::new(),
             localdefs: vec![],
         }
