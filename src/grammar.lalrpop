@@ -27,12 +27,14 @@ ModItem: ModItem = {
 
     "extern" "fn" <name:Id> "(" <formals:Formals> ")" <retn:Return?> ";" => {
         let body = Box::new(Block { ty: None, items: vec![] });
-        ModItem::Fn(Box::new(FunctionDef {exported:false, imported:true, name, formals, retn, body, locals: None}))
+        ModItem::Fn(Box::new(FunctionDef {exported:false, imported:true,
+                                          name, formals, retn, body, locals: None}))
     },
 
     <v:"pub"?> "fn" <name:Id> "(" <formals:Formals> ")" <retn:Return?> <body:Block> => {
         let exported = if let Some(_) = v { true } else { false };
-        ModItem::Fn(Box::new(FunctionDef {exported, imported:false, name, formals, retn, body, locals: None}))
+        ModItem::Fn(Box::new(FunctionDef {exported, imported:false,
+                                          name, formals, retn, body, locals: None}))
     },
 
     "struct" <name:Id> "{" <fields:Formals> "}" => {
@@ -89,7 +91,8 @@ Block: Box<Block> = {
 }
 
 BlockItem: BlockItem = {
-    "let" <name:Id> ":" <ty:Type> "=" <init:Expr> => BlockItem::Let(Box::new(LetDefn {name, ty, init})),
+    "let" <name:Id> ":" <ty:Type> "=" <init:Expr> =>
+        BlockItem::Let(Box::new(LetDefn {name, ty, init})),
     <e:Expr> => BlockItem::Expr(e)
 }
 
@@ -298,6 +301,10 @@ FieldValue: (Id, Box<Expr>) = {
 // Note no leading underscore is allowed in names
 
 Name: String = <s:r"[a-zA-Z][a-zA-Z_0-9]*"> => String::from_str(s).unwrap();
+
 IntLit: String = <s:r"[0-9]+[iIlL]?"> => String::from_str(s).unwrap();
-FloatLit: String = <s:r"[0-9]+[fFdD]|[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?[fFdD]?"> => String::from_str(s).unwrap();
+
+FloatLit: String = <s:r"[0-9]+[fFdD]|[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?[fFdD]?"> =>
+    String::from_str(s).unwrap();
+
 JSItem: String = <s:r"js<!<.*>!>"> => String::from_str(s).unwrap();

@@ -70,7 +70,8 @@ impl Flatten
     fn flatten_function(&mut self, f:&mut FunctionDef) {
         if !f.imported {
             self.env.locals.push_rib();
-            (&f.formals).into_iter().for_each(|(name,_ty)| self.env.locals.add_param(name, name.clone()));
+            (&f.formals).into_iter()
+                .for_each(|(name,_ty)| self.env.locals.add_param(name, name.clone()));
 
             self.flatten_block(&mut f.body);
 
@@ -89,7 +90,8 @@ impl Flatten
             match item {
                 BlockItem::Let(l) => {
                     self.flatten_expr(&mut l.init);
-                    let new_name = Id::gensym(&l.name.name()); // FIXME: dodgy? what if name is "loop", say?
+                    // FIXME: Dodgy gensym use?  What if name is "loop", say?
+                    let new_name = Id::gensym(&l.name.name());
                     let mut new_init = box_void();
                     swap(&mut l.init, &mut new_init);
                     new_exprs.push(box_set_local(&new_name, new_init));

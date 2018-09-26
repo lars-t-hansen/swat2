@@ -133,7 +133,9 @@ impl<'a> Waster<'a>
                 self.emit(&format!("(br ${})", &label));
             }
             Uxpr::Binop{op, lhs, rhs} => {
-                self.emit(&format!("({}.{} ", render_op_type(e.ty), render_binop(*op, e.ty.unwrap())));
+                self.emit(&format!("({}.{} ",
+                                   render_op_type(e.ty),
+                                   render_binop(*op, e.ty.unwrap())));
                 self.wast_expr(&lhs);
                 self.emit(" ");
                 self.wast_expr(&rhs);

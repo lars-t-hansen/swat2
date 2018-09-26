@@ -41,10 +41,12 @@ fn compile_file(infilename:&str)
         .unwrap();
 
     let wastfilename = basename.clone() + ".wast";
-    let mut wastfile = File::create(&wastfilename).expect(&format!("{}: could not create", &wastfilename));
+    let mut wastfile = File::create(&wastfilename)
+        .expect(&format!("{}: could not create", &wastfilename));
 
     let jsfilename = basename + ".js";
-    let mut jsfile = File::create(&jsfilename).expect(&format!("{}: could not create", &jsfilename));
+    let mut jsfile = File::create(&jsfilename)
+        .expect(&format!("{}: could not create", &jsfilename));
 
     for item in &mut prog.items {
         match item {
@@ -55,7 +57,8 @@ fn compile_file(infilename:&str)
                 waster::wast(m, &mut wastfile);
             }
             ast::TopItem::Js(s) => {
-                jsfile.write(s.as_bytes()).expect(&format!("{}: failed to write", &jsfilename));
+                jsfile.write(s.as_bytes())
+                    .expect(&format!("{}: failed to write", &jsfilename));
             }
         }
     }
@@ -63,7 +66,9 @@ fn compile_file(infilename:&str)
 
 fn read_text_file(infilename:&str) -> String {
     let mut source = String::new();
-    let mut infile = File::open(&infilename).expect(&format!("{}: file not found", &infilename));
-    infile.read_to_string(&mut source).expect(&format!("{}: failed to read", &infilename));
+    let mut infile = File::open(&infilename)
+        .expect(&format!("{}: file not found", &infilename));
+    infile.read_to_string(&mut source)
+        .expect(&format!("{}: failed to read", &infilename));
     source
 }

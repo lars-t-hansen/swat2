@@ -151,8 +151,10 @@ impl Desugarer
                     Unop::BitNot => {
                         let mut new_e = box_void();
                         swap(e, &mut new_e);
-                        replacement_expr =
-                            Some(box_binop(new_e.ty, Binop::BitXor, new_e, box_intlit(-1, e.ty.unwrap())));
+                        replacement_expr = Some(box_binop(new_e.ty,
+                                                          Binop::BitXor,
+                                                          new_e,
+                                                          box_intlit(-1, e.ty.unwrap())));
                     }
                     Unop::Not => {
                         let mut new_e = box_void();
@@ -162,8 +164,10 @@ impl Desugarer
                     Unop::Neg => {
                         let mut new_e = box_void();
                         swap(e, &mut new_e);
-                        replacement_expr =
-                            Some(box_binop(new_e.ty, Binop::Sub, box_intlit(0, e.ty.unwrap()), new_e));
+                        replacement_expr = Some(box_binop(new_e.ty,
+                                                          Binop::Sub,
+                                                          box_intlit(0, e.ty.unwrap()),
+                                                          new_e));
                     }
                     _ => { }
                 }
