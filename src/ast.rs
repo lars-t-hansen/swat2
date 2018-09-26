@@ -24,7 +24,7 @@ pub struct Module {
 #[derive(Debug)]
 pub enum ModItem {
     Var(Box<GlobalDef>),
-    Fn(Box<FnDef>),
+    Fn(Box<FunctionDef>),
     Struct(Box<StructDef>)
 }
 
@@ -39,7 +39,7 @@ pub struct GlobalDef {
 }
 
 #[derive(Debug)]
-pub struct FnDef {
+pub struct FunctionDef {
     pub imported: bool,
     pub exported: bool,
     pub name:     Id,

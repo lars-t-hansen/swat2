@@ -1,6 +1,6 @@
 // -*- fill-column: 80 -*-
 
-use ast::{Binop, FnDef, GlobalDef, Id, ModItem, StructDef, Type, Unop};
+use ast::{Binop, FunctionDef, GlobalDef, Id, ModItem, StructDef, Type, Unop};
 use std::clone::Clone;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -248,12 +248,12 @@ impl<T> Env<T>
         self.define_global(g);
     }
 
-    pub fn predefine_function(&mut self, f:&FnDef) {
+    pub fn predefine_function(&mut self, f:&FunctionDef) {
         assert!(!self.toplevel.probe(&f.name));
         self.toplevel.insert_function(&f.name, vec![], None);
     }
 
-    pub fn elaborate_function(&mut self, f:&FnDef) {
+    pub fn elaborate_function(&mut self, f:&FunctionDef) {
         assert!(self.toplevel.is_function(&f.name));
         self.toplevel.remove(&f.name);
         self.define_function(f);
@@ -275,7 +275,7 @@ impl<T> Env<T>
         self.toplevel.insert_global(&g.name, g.mutable, g.ty);
     }
 
-    pub fn define_function(&mut self, f:&FnDef) {
+    pub fn define_function(&mut self, f:&FunctionDef) {
         assert!(!self.toplevel.probe(&f.name));
         let param_types = (&f.formals).into_iter().map(|(_,ty)| *ty).collect();
         self.toplevel.insert_function(&f.name, param_types, f.retn);

@@ -71,7 +71,7 @@ impl<'a> Flatten<'a>
         self.flatten_expr(&mut g.init);
     }
 
-    fn flatten_function(&mut self, f:&mut FnDef) {
+    fn flatten_function(&mut self, f:&mut FunctionDef) {
         if !f.imported {
             self.env.locals.push_rib();
             (&f.formals).into_iter().for_each(|(name,_ty)| self.env.locals.add_param(name, name.clone()));

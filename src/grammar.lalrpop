@@ -27,12 +27,12 @@ ModItem: ModItem = {
 
     "extern" "fn" <name:Id> "(" <formals:Formals> ")" <retn:Return?> ";" => {
         let body = Box::new(Block { ty: None, items: vec![] });
-        ModItem::Fn(Box::new(FnDef {exported:false, imported:true, name, formals, retn, body, locals: None}))
+        ModItem::Fn(Box::new(FunctionDef {exported:false, imported:true, name, formals, retn, body, locals: None}))
     },
 
     <v:"pub"?> "fn" <name:Id> "(" <formals:Formals> ")" <retn:Return?> <body:Block> => {
         let exported = if let Some(_) = v { true } else { false };
-        ModItem::Fn(Box::new(FnDef {exported, imported:false, name, formals, retn, body, locals: None}))
+        ModItem::Fn(Box::new(FunctionDef {exported, imported:false, name, formals, retn, body, locals: None}))
     },
 
     "struct" <name:Id> "{" <fields:Formals> "}" => {

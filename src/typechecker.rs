@@ -115,13 +115,13 @@ impl Check
         }
     }
 
-    fn cook_function(&mut self, f:&mut FnDef) {
+    fn cook_function(&mut self, f:&mut FunctionDef) {
         check_unique_names(&f.formals, |(name,_)| *name, "parameter");
         (&mut f.formals).into_iter().for_each(|(_,ty)| self.check_type(ty));
         self.check_type_or_void(&mut f.retn);
     }
 
-    fn check_function(&mut self, f:&mut FnDef) {
+    fn check_function(&mut self, f:&mut FunctionDef) {
         if (f.exported || f.imported) &&
             (is_ref_type(f.retn) || (&f.formals).into_iter().any(|(_,ty)| is_ref_type(Some(*ty))))
         {

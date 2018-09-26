@@ -46,7 +46,7 @@ impl<'a> Waster<'a>
         }
     }
 
-    fn wast_function(&mut self, f:&FnDef) {
+    fn wast_function(&mut self, f:&FunctionDef) {
         let mut params = "".to_string();
         for (name, ty) in &f.formals {
             params.push_str(&format!("(param ${} {}) ", name, render_type(Some(*ty))));
