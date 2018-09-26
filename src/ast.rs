@@ -17,7 +17,7 @@ pub enum TopItem {
 
 #[derive(Debug)]
 pub struct Module {
-    pub name: Id,
+    pub name:  Id,
     pub items: Vec<ModItem>
 }
 
@@ -30,12 +30,12 @@ pub enum ModItem {
 
 #[derive(Debug)]
 pub struct GlobalDef {
-    pub mutable:bool,
-    pub imported:bool,
-    pub exported:bool,
-    pub name:Id,
-    pub ty:Type,
-    pub init:Box<Expr>
+    pub mutable:  bool,
+    pub imported: bool,
+    pub exported: bool,
+    pub name:     Id,
+    pub ty:       Type,
+    pub init:     Box<Expr>
 }
 
 #[derive(Debug)]
@@ -70,7 +70,7 @@ pub enum BlockItem {
 #[derive(Debug)]
 pub struct LetDefn {
     pub name: Id,
-    pub ty: Type,
+    pub ty:   Type,
     pub init: Box<Expr>
 }
 
