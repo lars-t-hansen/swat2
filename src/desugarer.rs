@@ -51,7 +51,7 @@ impl<'a> Desugarer<'a>
             match item {
                 ModItem::Var(g)    => { self.desugar_global(g); }
                 ModItem::Fn(f)     => { self.desugar_function(f); }
-                ModItem::Struct(s) => { panic!("NYI"); }
+                ModItem::Struct(s) => { }
             }
         }
     }
@@ -205,9 +205,7 @@ impl<'a> Desugarer<'a>
                 }
             }
             Uxpr::Id(_id) => { }
-            Uxpr::Deref{base, field} => {
-                panic!("NYI");
-            }
+            Uxpr::Deref{base, field} => { }
             Uxpr::New{ty_name, values} => {
                 panic!("NYI");
             }

@@ -357,10 +357,26 @@ impl Check
                 }
             }
             Uxpr::Deref{base, field} => {
-                // Base must have type (ref S)
-                // S must have a field with the given name
-                // The result type is the type of that field
-                panic!("NYI");
+                self.check_expr(base);
+                match base.ty {
+                    Some(Type::CookedRef(s_name)) => {
+                        let (_,fields) = &*self.env.get_struct_def(&s_name);
+                        let the_field = fields.into_iter().find(|(name,_)| name == field);
+                        match the_field {
+                            Some((_,ty)) => {
+                                expr.ty = Some(*ty);
+                            }
+                            None => {
+                                panic!("Attempting to read field {} from struct that does not have it {}",
+                                       field, fmt_type(base.ty));
+                            }
+                        }
+                    }
+                    _ => {
+                        panic!("Attempting to read field {} on non-struct type {}",
+                               field, fmt_type(base.ty));
+                    }
+                }
             }
             Uxpr::New{ty_name, values} => {
                 // The ty_name must name a struct type

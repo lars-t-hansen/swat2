@@ -52,9 +52,19 @@ impl<'a> Flatten<'a>
             match item {
                 ModItem::Var(v)    => { self.flatten_global(v) }
                 ModItem::Fn(f)     => { self.flatten_function(f); }
-                ModItem::Struct(s) => { panic!("NYI"); }
+                ModItem::Struct(s) => { self.flatten_struct(s); }
             }
         }
+    }
+
+    fn flatten_struct(&mut sels, s:&mut StructDef) {
+        // This either does nothing, or it assigns field indices to the fields
+        // and stores them in the environment somehow.  This could be a type
+        // parameter to Env, but sort of hairy.
+        //
+        // If it does assign indices, it must run in a separate pass before
+        // function bodies.
+        panic!("NYI");
     }
 
     fn flatten_global(&mut self, g:&mut GlobalVar) {
@@ -191,6 +201,10 @@ impl<'a> Flatten<'a>
                 }
             }
             Uxpr::Deref{base, field} => {
+                // Rewrite this as StructGet
+                // The node carries the name of the structure
+                // The node probably needs to carry the field index, or
+                // things become too complicated in the waster.
                 panic!("NYI");
             }
             Uxpr::New{ty_name, values} => {

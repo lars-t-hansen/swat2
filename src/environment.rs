@@ -295,4 +295,11 @@ impl<T> Env<T>
             ModItem::Struct(s) => { self.define_struct(s); }
         }
     }
+
+    pub fn get_struct_def(&self, name:&Id) -> Rc<Struct> {
+        match self.toplevel.lookup(name) {
+            Some(Binding::Struct(s)) => s,
+            _ => unreachable!()
+        }
+    }
 }

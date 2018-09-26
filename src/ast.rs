@@ -158,6 +158,24 @@ pub enum Type {
     CookedRef(Id)
 }
 
+pub fn fmt_type(t:Option<Type>) -> String
+{
+    match t {
+        None => "void".to_string(),
+        Some(x) => {
+            match x {
+                Type::I32 => "I32".to_string(),
+                Type::I64 => "I64".to_string(),
+                Type::F32 => "F32".to_string(),
+                Type::F64 => "F64".to_string(),
+                Type::AnyRef => "anyref".to_string(),
+                Type::RawRef(n) => format!("(rawref {})", n),
+                Type::CookedRef(n) => format!("(ref {})", n)
+            }
+        }
+    }
+}
+
 // Binops have equal operand types and result type
 #[derive(Clone, Copy, Debug)]
 pub enum Binop {
