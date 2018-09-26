@@ -57,7 +57,7 @@ impl<'a> Flatten<'a>
         }
     }
 
-    fn flatten_struct(&mut sels, s:&mut StructDef) {
+    fn flatten_struct(&mut self, s:&mut StructDef) {
         // This either does nothing, or it assigns field indices to the fields
         // and stores them in the environment somehow.  This could be a type
         // parameter to Env, but sort of hairy.
@@ -194,7 +194,7 @@ impl<'a> Flatten<'a>
                     Some(Binding::Local(new_name)) => {
                         replacement_expr = Some(box_get_local(expr.ty, &new_name));
                     }
-                    Some(Binding::GlobalVar(_mutable, _)) => {
+                    Some(Binding::Global(_mutable, _)) => {
                         replacement_expr = Some(box_get_global(expr.ty, &id));
                     }
                     _ => { unreachable!(); }
@@ -221,7 +221,7 @@ impl<'a> Flatten<'a>
                             Some(Binding::Local(new_name)) => {
                                 replacement_expr = Some(box_set_local(&new_name, new_rhs));
                             }
-                            Some(Binding::GlobalVar(_mutable, _)) => {
+                            Some(Binding::Global(_mutable, _)) => {
                                 replacement_expr = Some(box_set_global(&id, new_rhs));
                             }
                             _ => { unreachable!() }

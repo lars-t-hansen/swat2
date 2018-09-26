@@ -16,12 +16,10 @@ pub enum Intrin {
     Binop(Binop)
 }
 
-// TODO: "GlobalVar" could just be "Global" and "GlobalFun" could just be "Function"
-
 #[derive(Clone)]
 pub enum Binding<T : Clone> {
-    GlobalVar(bool, Type),
-    GlobalFun(Rc<Signature>),
+    Global(bool, Type),
+    Function(Rc<Signature>),
     Struct(Rc<Struct>),
     Intrinsic(Rc<Intrinsic>, Intrin),
     Local(T),
@@ -117,23 +115,23 @@ impl<T> ToplevelEnv<T>
     }
 
     pub fn insert_function(&mut self, name:&Id, param_types:Vec<Type>, retn:Option<Type>) {
-        self.env.insert(name.clone(), Binding::GlobalFun(Rc::new((param_types, retn))));
+        self.env.insert(name.clone(), Binding::Function(Rc::new((param_types, retn))));
     }
 
     pub fn is_function(&self, name:&Id) -> bool {
         match self.env.get(name) {
-            Some(Binding::GlobalFun(_)) => true,
+            Some(Binding::Function(_)) => true,
             _ => false
         }
     }
 
     pub fn insert_global(&mut self, name:&Id, mutable:bool, ty:Type) {
-        self.env.insert(name.clone(), Binding::GlobalVar(mutable, ty));
+        self.env.insert(name.clone(), Binding::Global(mutable, ty));
     }
 
     pub fn is_global(&self, name:&Id) -> bool {
         match self.env.get(name) {
-            Some(Binding::GlobalVar(_,_)) => true,
+            Some(Binding::Global(_,_)) => true,
             _ => false
         }
     }

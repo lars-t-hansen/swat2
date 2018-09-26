@@ -305,7 +305,7 @@ impl Check
                 }
                 if let Some(b) = self.env.lookup(&name) {
                     match b {
-                        Binding::GlobalFun(sig) => {
+                        Binding::Function(sig) => {
                             let (formals, ret) = &*sig;
                             if !match_parameters(&formals, actuals) {
                                 panic!("Mismatch in function signature");
@@ -342,10 +342,10 @@ impl Check
                     Some(Binding::Local(t)) => {
                         expr.ty = Some(t);
                     }
-                    Some(Binding::GlobalVar(_mutable, t)) => {
+                    Some(Binding::Global(_mutable, t)) => {
                         expr.ty = Some(t);
                     }
-                    Some(Binding::GlobalFun(_)) | Some(Binding::Intrinsic(_, _)) => {
+                    Some(Binding::Function(_)) | Some(Binding::Intrinsic(_, _)) => {
                         panic!("No first-class functions");
                     }
                     Some(Binding::Struct(_)) => {
@@ -393,7 +393,7 @@ impl Check
                         let t = match self.env.lookup(&id) {
                             Some(Binding::Local(t)) =>
                                 t,
-                            Some(Binding::GlobalVar(mutable, t)) =>
+                            Some(Binding::Global(mutable, t)) =>
                                 if mutable { t } else { panic!("Can't assign to constant"); },
                             _ => 
                                 panic!("Not a reference to a variable: {}", &id)
