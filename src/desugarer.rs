@@ -145,29 +145,29 @@ impl Desugarer
                     }
                 }
             }
-            Uxpr::Unop{op, e} => {
-                self.desugar_expr(e);
+            Uxpr::Unop{op, opd} => {
+                self.desugar_expr(opd);
                 match op {
                     Unop::BitNot => {
-                        let mut new_e = box_void();
-                        swap(e, &mut new_e);
-                        replacement_expr = Some(box_binop(new_e.ty,
+                        let mut new_opd = box_void();
+                        swap(opd, &mut new_opd);
+                        replacement_expr = Some(box_binop(new_opd.ty,
                                                           Binop::BitXor,
-                                                          new_e,
-                                                          box_intlit(-1, e.ty.unwrap())));
+                                                          new_opd,
+                                                          box_intlit(-1, opd.ty.unwrap())));
                     }
                     Unop::Not => {
-                        let mut new_e = box_void();
-                        swap(e, &mut new_e);
-                        replacement_expr = Some(box_unop(new_e.ty, Unop::Eqz, new_e));
+                        let mut new_opd = box_void();
+                        swap(opd, &mut new_opd);
+                        replacement_expr = Some(box_unop(new_opd.ty, Unop::Eqz, new_opd));
                     }                        
                     Unop::Neg => {
-                        let mut new_e = box_void();
-                        swap(e, &mut new_e);
-                        replacement_expr = Some(box_binop(new_e.ty,
+                        let mut new_opd = box_void();
+                        swap(opd, &mut new_opd);
+                        replacement_expr = Some(box_binop(new_opd.ty,
                                                           Binop::Sub,
-                                                          box_intlit(0, e.ty.unwrap()),
-                                                          new_e));
+                                                          box_intlit(0, opd.ty.unwrap()),
+                                                          new_opd));
                     }
                     _ => { }
                 }
@@ -219,7 +219,8 @@ impl Desugarer
                 }
             }
             Uxpr::Block(_) | Uxpr::Sequence{..} | Uxpr::Drop(_) |
-            Uxpr::GetLocal(_) | Uxpr::GetGlobal(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
+            Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
+            Uxpr::GetField{..} | Uxpr::SetField{..} => {
                 unreachable!();
             }
         }

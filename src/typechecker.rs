@@ -259,24 +259,24 @@ impl Check
                 }
                 expr.ty = lhs.ty;
             }
-            Uxpr::Unop{op, e} => {
-                self.check_expr(e);
+            Uxpr::Unop{op, opd} => {
+                self.check_expr(opd);
                 match op {
                     Unop::Neg =>
                     {
-                        if !is_num_type(e.ty) {
+                        if !is_num_type(opd.ty) {
                             panic!("Numeric type required for negation");
                         }
                     }
                     Unop::Not =>
                     {
-                        if !is_i32_type(e.ty) {
+                        if !is_i32_type(opd.ty) {
                             panic!("i32 type required for boolean 'not'");
                         }
                     }
                     Unop::BitNot =>
                     {
-                        if !is_int_type(e.ty) {
+                        if !is_int_type(opd.ty) {
                             panic!("integer type required for bitwise 'not'");
                         }
                     }
@@ -288,7 +288,7 @@ impl Check
                         unreachable!();
                     }
                 }
-                expr.ty = e.ty;
+                expr.ty = opd.ty;
             }
             Uxpr::Typeop{..} => {
                 // the rhs must be the name of a struct type or anyref
@@ -412,7 +412,8 @@ impl Check
                 }
             }
             Uxpr::Block(_) | Uxpr::Iterate{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) |
-            Uxpr::GetLocal(_) | Uxpr::GetGlobal(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
+            Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
+            Uxpr::GetField{..} | Uxpr::SetField{..} => {
                 unreachable!();
             }
         }

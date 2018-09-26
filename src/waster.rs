@@ -141,9 +141,9 @@ impl<'a> Waster<'a>
                 self.wast_expr(&rhs);
                 self.emit(")");
             }
-            Uxpr::Unop{op, e} => {
-                self.emit(&format!("({}.{} ", &render_op_type(e.ty), render_unop(*op)));
-                self.wast_expr(&e);
+            Uxpr::Unop{op, opd} => {
+                self.emit(&format!("({}.{} ", &render_op_type(opd.ty), render_unop(*op)));
+                self.wast_expr(&opd);
                 self.emit(")");
             }
             Uxpr::Typeop{..} => {
@@ -166,6 +166,7 @@ impl<'a> Waster<'a>
                 }
             }
             Uxpr::NullLit => {
+                // FIXME: Not adequate for structs
                 self.emit("(ref.null anyref)");
             }
             Uxpr::Drop(e) => {
@@ -173,30 +174,33 @@ impl<'a> Waster<'a>
                 self.wast_expr(&e);
                 self.emit(")\n");
             }
-            Uxpr::GetLocal(id) => {
-                self.emit(&format!("(get_local ${})", &id));
+            Uxpr::GetLocal{name} => {
+                self.emit(&format!("(get_local ${})", &name));
             }
-            Uxpr::GetGlobal(id) => {
-                self.emit(&format!("(get_global ${})", &id));
+            Uxpr::GetGlobal{name} => {
+                self.emit(&format!("(get_global ${})", &name));
             }
-            Uxpr::SetLocal{name, e} => {
+            Uxpr::SetLocal{name, value} => {
                 self.emit(&format!("(set_local ${} ", &name));
-                self.wast_expr(&e);
+                self.wast_expr(&value);
                 self.emit(")");
             }
-            Uxpr::SetGlobal{name, e} => {
+            Uxpr::SetGlobal{name, value} => {
                 self.emit(&format!("(set_global ${} ", &name));
-                self.wast_expr(&e);
+                self.wast_expr(&value);
                 self.emit(")");
             }
-            Uxpr::Deref{base, field} => {
+            Uxpr::GetField{..} => {
+                panic!("NYI");
+            }
+            Uxpr::SetField{..} => {
                 panic!("NYI");
             }
             Uxpr::New{ty_name, values} => {
                 panic!("NYI");
             }
             Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block(_) |
-            Uxpr::Assign{..} | Uxpr::Id(_) =>
+            Uxpr::Assign{..} | Uxpr::Id(_) | Uxpr::Deref{..} =>
             {
                 unreachable!();
             }

@@ -176,8 +176,8 @@ impl Flatten
                 self.flatten_expr(lhs);
                 self.flatten_expr(rhs);
             }
-            Uxpr::Unop{e, ..} => {
-                self.flatten_expr(e);
+            Uxpr::Unop{opd, ..} => {
+                self.flatten_expr(opd);
             }
             Uxpr::Typeop{..} => {
                 panic!("NYI");
@@ -231,7 +231,8 @@ impl Flatten
                 }
             }
             Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) |
-            Uxpr::GetLocal(_) | Uxpr::GetGlobal(_) | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} => {
+            Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
+            Uxpr::GetField{..} | Uxpr::SetField{..} => {
                 unreachable!();
             }
         }

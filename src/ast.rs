@@ -264,7 +264,7 @@ pub enum Uxpr {
     Break{label:Id},
     Block(Block),
     Binop{op:Binop, lhs:Box<Expr>, rhs:Box<Expr>},
-    Unop{op:Unop, e:Box<Expr>},
+    Unop{op:Unop, opd:Box<Expr>},
     Typeop{op:Typeop, lhs:Box<Expr>, rhs:Type},
     Assign{lhs:LValue, rhs:Box<Expr>},
     Call{name:Id, actuals:Vec<Box<Expr>>},
@@ -273,10 +273,12 @@ pub enum Uxpr {
     Iterate{break_label:Id, continue_label:Id, body:Box<Block>},
 
     // Introduced by flattening.
-    GetLocal(Id),
-    GetGlobal(Id),
-    SetLocal{name:Id, e:Box<Expr>},
-    SetGlobal{name:Id, e:Box<Expr>},
+    GetLocal{name: Id},
+    GetGlobal{name: Id},
+    SetLocal{name:Id, value:Box<Expr>},
+    SetGlobal{name:Id, value:Box<Expr>},
+    GetField{base:Box<Expr>, field:Id},
+    SetField{base:Box<Expr>, field:Id, value:Box<Expr>},
     Sequence{ty:Option<Type>, body:Vec<Box<Expr>>},
     Drop(Box<Expr>)
 }
@@ -301,8 +303,8 @@ pub fn box_void() -> Box<Expr> {
     Box::new(Expr{ ty: None, u: Uxpr::Void })
 }
 
-pub fn box_unop(ty:Option<Type>, op:Unop, e:Box<Expr>) -> Box<Expr> {
-    Box::new(Expr{ ty, u: Uxpr::Unop{ op, e } })
+pub fn box_unop(ty:Option<Type>, op:Unop, opd:Box<Expr>) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::Unop{ op, opd } })
 }
 
 pub fn box_typeop(ty:Option<Type>, op:Typeop, lhs:Box<Expr>, rhs:Type) -> Box<Expr> {
@@ -340,23 +342,21 @@ pub fn box_iterate(break_label:&Id, continue_label:&Id, body:Box<Block>) -> Box<
 }
 
 pub fn box_get_local(ty:Option<Type>, name:&Id) -> Box<Expr> {
-    Box::new(Expr{ ty, u: Uxpr::GetLocal(name.clone()) })
+    Box::new(Expr{ ty, u: Uxpr::GetLocal{name: *name} })
 }
 
 pub fn box_get_global(ty:Option<Type>, name:&Id) -> Box<Expr> {
-    Box::new(Expr{ ty, u: Uxpr::GetGlobal(name.clone()) })
+    Box::new(Expr{ ty, u: Uxpr::GetGlobal{name: *name} })
 }
 
-pub fn box_set_local(name:&Id, rhs:Box<Expr>) -> Box<Expr> {
+pub fn box_set_local(name:&Id, value:Box<Expr>) -> Box<Expr> {
     Box::new(Expr{ ty: None,
-                   u:  Uxpr::SetLocal{name: name.clone(),
-                                      e:    rhs} })
+                   u:  Uxpr::SetLocal{name: *name, value} })
 }
 
-pub fn box_set_global(name:&Id, rhs:Box<Expr>) -> Box<Expr> {
+pub fn box_set_global(name:&Id, value:Box<Expr>) -> Box<Expr> {
     Box::new(Expr{ ty: None,
-                   u:  Uxpr::SetGlobal{name: name.clone(),
-                                       e:    rhs} })
+                   u:  Uxpr::SetGlobal{name: *name, value} })
 }
 
 pub fn box_intlit(n:i64, ty:Type) -> Box<Expr> {
