@@ -257,7 +257,7 @@ pub enum Uxpr {
     NullLit,
     Id(Id),
     Deref{base:Box<Expr>, field:Id},
-    New{ty_name:Id, values:Vec<(Id,Box<Expr>)>},
+    New{ty_name:Id, values:Vec<(Id,Box<Expr>)>}, // "initializers" would be better than "values"
     If{test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>},
     While{test:Box<Expr>, body:Box<Block>},
     Loop{break_label:Id, body:Box<Block>},

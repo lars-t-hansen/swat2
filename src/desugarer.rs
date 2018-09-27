@@ -8,9 +8,9 @@
 // - (bitnot x) is rewritten as (xor x -1)
 // - (neg x) is rewritten as (- 0 x)
 // - (not x) is rewritten as (eqz x)
-// - calls to intrinsics have been rewritten as intrinsic ops (some of
-//   them have direct mappings, some require expansion), note this requires
-//   maintaining the environment.
+// - calls to intrinsics are rewritten as intrinsic ops (some of them have
+//   direct mappings, some require expansion)
+// - `new` is rewritten with initializers in struct declaration order
 //
 // - TODO: (ne x y) is rewritten as (eqz (ref.eq x y)) if x and y are pointers
 // - TODO: rewrite x % y as something else if x and y are floats
@@ -208,8 +208,38 @@ impl Desugarer
             Uxpr::Deref{base, ..} => {
                 self.desugar_expr(base);
             }
-            Uxpr::New{values, ..} => {
-                values.into_iter().for_each(|(_,value)| self.desugar_expr(value));
+            Uxpr::New{ty_name, values} => {
+                // Reorganize the values so that they are in the right order for
+                // eventual structure construction (and so the names in the
+                // initializer list can be ignored).  Preserve the order of side
+                // effects.
+                //
+                // There are optimization opportunities here (fields already in
+                // order; fields unaffected by ordering or side effects) but
+                // ignore that for now.
+
+                let mut items = vec![];
+                let mut initializers = vec![];
+
+                for (field, mut value) in values.drain(0..) {
+                    self.desugar_expr(&mut value);
+                    let tmp_name = Id::gensym("tmp");
+                    let field_ty = value.ty.unwrap();
+                    items.push(BlockItem::Let(Box::new(LetDefn { name: tmp_name,
+                                                                 ty:   field_ty,
+                                                                 init: value })));
+                    initializers.push((field, Box::new(Expr { ty: Some(field_ty), u: Uxpr::Id(tmp_name) })))
+                }
+
+                // FIXME: initializers are not actually in the right order here, they
+                // must be sorted somehow!
+
+                items.push(BlockItem::Expr(Box::new(Expr { ty: expr.ty,
+                                                           u:  Uxpr::New{ ty_name: *ty_name,
+                                                                          values:  initializers } })));
+                replacement_expr = Some(Box::new(Expr { ty: expr.ty,
+                                                        u:  Uxpr::Block(Block{ ty: expr.ty,
+                                                                               items }) }));
             }
             Uxpr::Assign{lhs, rhs} => {
                 self.desugar_expr(rhs);

@@ -1,0 +1,13 @@
+module Structs
+{
+    struct S {
+        i: i32,
+        j: f64
+    }
+    fn testi(s:S) -> i32 {
+        s.i
+    }
+    fn testj(s:S) -> f64 {
+        s.j
+    }
+}
