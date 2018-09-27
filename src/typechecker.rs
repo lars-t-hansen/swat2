@@ -86,9 +86,9 @@ impl Check
         // declared types.
         for item in &mut m.items {
             match item {
-                ModItem::Var(v)    => { self.check_global(v); }
-                ModItem::Fn(f)     => { self.check_function(f); }
-                ModItem::Struct(s) => { /* nothing left to do */ }
+                ModItem::Var(v)     => { self.check_global(v); }
+                ModItem::Fn(f)      => { self.check_function(f); }
+                ModItem::Struct(_s) => { /* nothing left to do */ }
             }
         }
     }
@@ -231,27 +231,23 @@ impl Check
                     Binop::ShiftLeft | Binop::ShiftRight | Binop::UShiftRight |
                     Binop::BitAnd | Binop::BitOr | Binop::BitXor |
                     Binop::ULess | Binop::ULessOrEqual | Binop::UGreater | Binop::UGreaterOrEqual |
-                    Binop::RotLeft | Binop::RotRight =>
-                    {
+                    Binop::RotLeft | Binop::RotRight => {
                         if !is_int_type(lhs.ty) {
                             panic!("Integer type required");
                         }
                     }
-                    Binop::Copysign =>
-                    {
+                    Binop::Copysign => {
                         if !is_float_type(lhs.ty) {
                             panic!("Floating type required");
                         }
                     }
                     Binop::Add | Binop::Sub | Binop::Mul | Binop::Div | Binop::Rem |
-                    Binop::Less | Binop::LessOrEqual | Binop::Greater | Binop::GreaterOrEqual =>
-                    {
+                    Binop::Less | Binop::LessOrEqual | Binop::Greater | Binop::GreaterOrEqual => {
                         if !is_num_type(lhs.ty) {
                             panic!("Numeric type required");
                         }
                     }
-                    Binop::Equal | Binop::NotEqual =>
-                    {
+                    Binop::Equal | Binop::NotEqual => {
                         if !is_value_type(lhs.ty) {
                             panic!("Non-void type required");
                         }
@@ -262,20 +258,17 @@ impl Check
             Uxpr::Unop{op, opd} => {
                 self.check_expr(opd);
                 match op {
-                    Unop::Neg =>
-                    {
+                    Unop::Neg => {
                         if !is_num_type(opd.ty) {
                             panic!("Numeric type required for negation");
                         }
                     }
-                    Unop::Not =>
-                    {
+                    Unop::Not => {
                         if !is_i32_type(opd.ty) {
                             panic!("i32 type required for boolean 'not'");
                         }
                     }
-                    Unop::BitNot =>
-                    {
+                    Unop::BitNot => {
                         if !is_int_type(opd.ty) {
                             panic!("integer type required for bitwise 'not'");
                         }
@@ -283,21 +276,35 @@ impl Check
                     Unop::Clz | Unop::Ctz | Unop::Popcnt | Unop::Eqz |
                     Unop::Extend8 | Unop::Extend16 | Unop::Extend32 |
                     Unop::Sqrt | Unop::Ceil | Unop::Floor | Unop::Nearest | Unop::Trunc |
-                    Unop::I32ToI64 | Unop::U32ToI64 | Unop::I64ToI32 =>
-                    {
+                    Unop::I32ToI64 | Unop::U32ToI64 | Unop::I64ToI32 => {
                         unreachable!();
                     }
                 }
                 expr.ty = opd.ty;
             }
-            Uxpr::Typeop{..} => {
-                // the rhs must be the name of a struct type or anyref
-                // the type of the lhs must be a struct type or anyref
-                // if the type of the lhs and rhs are both some struct, then they must
-                // be the same struct
-                // For "is", the result is bool
-                // For "as", the result is rhs
-                panic!("NYI");
+            Uxpr::Typeop{op, lhs, rhs} => {
+                self.check_expr(lhs);
+                self.check_type(rhs);
+                if !is_ref_or_anyref_type(lhs.ty) {
+                    panic!("Left hand side of type operator must have reference type");
+                }
+                if !is_ref_or_anyref_type(Some(*rhs)) {
+                    panic!("Right hand side of type operator must have reference type");
+                }
+                // If both are struct types then they must be the same struct type.
+                let rhs = *rhs;
+                match (lhs.ty, &rhs) {
+                    (Some(Type::CookedRef(lhs_struct)), Type::CookedRef(rhs_struct)) => {
+                        if lhs_struct != *rhs_struct {
+                            panic!("Incompatible types in type operator");
+                        }
+                    }
+                    _ => { }
+                }
+                expr.ty = Some(match op {
+                    Typeop::Is => { Type::I32 }
+                    Typeop::As => { rhs }
+                })
             }
             Uxpr::Call{name, actuals} => {
                 for actual in &mut *actuals {
@@ -358,33 +365,38 @@ impl Check
             }
             Uxpr::Deref{base, field} => {
                 self.check_expr(base);
-                match base.ty {
-                    Some(Type::CookedRef(s_name)) => {
-                        let (_,fields) = &*self.env.get_struct_def(&s_name);
-                        let the_field = fields.into_iter().find(|(name,_)| name == field);
-                        match the_field {
-                            Some((_,ty)) => {
-                                expr.ty = Some(*ty);
-                            }
-                            None => {
-                                panic!("Attempting to read field {} from struct that does not have it {}",
-                                       field, fmt_type(base.ty));
-                            }
-                        }
-                    }
-                    _ => {
-                        panic!("Attempting to read field {} on non-struct type {}",
-                               field, fmt_type(base.ty));
-                    }
-                }
+                let ty = self.check_struct_ref(base, field);
+                expr.ty = Some(ty);
             }
             Uxpr::New{ty_name, values} => {
-                // The ty_name must name a struct type
-                // The field names in the list of values must be distinct
-                // The field names in the list of values must match the struct's fields exactly
-                // The expression types must match the field types exactly
-                // The result type is (ref ty_name)
-                panic!("NYI");
+                values.into_iter().for_each(|(_,e)| self.check_expr(e));
+                match self.env.lookup(ty_name) {
+                    Some(Binding::Struct(s)) => {
+                        let (_, fields) = &*s;
+                        check_unique_names(values, |(name,_)| *name, "initializer");
+                        if values.len() != fields.len() {
+                            panic!("Wrong number of initializers");
+                        }
+                        // Since the initializer names are unique and their
+                        // number matches the number of fields, we can verify
+                        // that the initializer matches the struct exactly by
+                        // checking that every field in the initializer is also
+                        // in the struct.
+                        for (field, value) in values {
+                            if let Some((_, ty)) = fields.into_iter().find(|(n,_)| n == field) {
+                                if !is_same_type(value.ty, Some(*ty)) {
+                                    panic!("Initializer expression type does not match field type");
+                                }
+                            } else {
+                                panic!("Initializer for undefined field: {}", field);
+                            }
+                        }
+                        expr.ty = Some(Type::CookedRef(*ty_name));
+                    }
+                    _ => {
+                        panic!("Type name in `new` must name a struct type");
+                    }
+                }
             }
             Uxpr::Assign{lhs, rhs} => {
                 self.check_expr(rhs);
@@ -403,11 +415,11 @@ impl Check
                         }
                     }
                     LValue::Field{base,field} => {
-                        // Base must have type (ref S)
-                        // S must have a field with the given name
-                        // the expression must have type that matches that of the field
-                        // The result type is void
-                        panic!("NYI");
+                        self.check_expr(base);
+                        let ty = self.check_struct_ref(base, field);
+                        if !is_same_type(Some(ty), rhs.ty) {
+                            panic!("Type of value being stored does not match field");
+                        }
                     }
                 }
             }
@@ -415,6 +427,26 @@ impl Check
             Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
             Uxpr::GetField{..} | Uxpr::SetField{..} => {
                 unreachable!();
+            }
+        }
+    }
+
+    fn check_struct_ref(&mut self, base:&Box<Expr>, field:&Id) -> Type {
+        match base.ty {
+            Some(Type::CookedRef(s_name)) => {
+                let (_,fields) = &*self.env.get_struct_def(&s_name);
+                let the_field = fields.into_iter().find(|(name,_)| name == field);
+                match the_field {
+                    Some((_,ty)) => *ty,
+                    None => {
+                        panic!("Attempting to access field {} from struct that does not have it {}",
+                               field, fmt_type(base.ty));
+                    }
+                }
+            }
+            _ => {
+                panic!("Attempting to access field {} on non-struct type {}",
+                       field, fmt_type(base.ty));
             }
         }
     }

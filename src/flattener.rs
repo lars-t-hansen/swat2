@@ -180,6 +180,21 @@ impl Flatten
                 self.flatten_expr(opd);
             }
             Uxpr::Typeop{..} => {
+                // we should rewrite:
+                //  x is s => (block (drop x) true),  if typeof(x) is s or s is anyref
+                //  x to t => x,  if typeof(x) is t or t is anyref
+                //
+                // also:
+                //  we only have a `narrow` operator, so after the above cleanup,
+                //    (x is s) => ((narrow x s) != null)
+                //    (x to t) => (let tmp = (narrow x s); if tmp == null { trap() } else { tmp })
+                //  where the tmp is an indication that we should do some of this during
+                //  desugaring.
+                //
+                // we could in principle handle the optimizations on the narrowing operation here?
+                // are they optimizations or correctness-ensuring transforms?
+                //
+                // perhaps desugaring rewrites as "exact-downcast" and we flatten that to struct.narrow.
                 panic!("NYI");
             }
             Uxpr::Call{actuals, ..} => {
@@ -206,6 +221,12 @@ impl Flatten
                 panic!("NYI");
             }
             Uxpr::New{ty_name, values} => {
+                // This becomes a structnew node, or we can keep the `new`
+                // the initializer names are stripped
+                // the initializer values are placed into the correct order
+                // note that reordering fields also reorders side effects, which
+                // means that really, we may need temps.  So maybe desugaring should
+                // take care of this.
                 panic!("NYI");
             }
             Uxpr::Assign{lhs, rhs} => {
@@ -226,6 +247,7 @@ impl Flatten
                         }
                     }
                     LValue::Field{base,field} => {
+                        // Rewrite this as structset
                         panic!("NYI");
                     }
                 }

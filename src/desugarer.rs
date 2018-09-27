@@ -45,9 +45,9 @@ impl Desugarer
         (&m.items).into_iter().for_each(|item| self.env.define_toplevel(item));
         for item in &mut m.items {
             match item {
-                ModItem::Var(g)    => { self.desugar_global(g); }
-                ModItem::Fn(f)     => { self.desugar_function(f); }
-                ModItem::Struct(s) => { }
+                ModItem::Var(g)     => { self.desugar_global(g); }
+                ModItem::Fn(f)      => { self.desugar_function(f); }
+                ModItem::Struct(_s) => { }
             }
         }
     }
@@ -172,8 +172,8 @@ impl Desugarer
                     _ => { }
                 }
             }
-            Uxpr::Typeop{..} => {
-                panic!("NYI");
+            Uxpr::Typeop{lhs, ..} => {
+                self.desugar_expr(lhs);
             }
             Uxpr::Call{name, actuals} => {
                 for actual in &mut *actuals {
@@ -205,16 +205,18 @@ impl Desugarer
                 }
             }
             Uxpr::Id(_id) => { }
-            Uxpr::Deref{base, field} => { }
-            Uxpr::New{ty_name, values} => {
-                panic!("NYI");
+            Uxpr::Deref{base, ..} => {
+                self.desugar_expr(base);
+            }
+            Uxpr::New{values, ..} => {
+                values.into_iter().for_each(|(_,value)| self.desugar_expr(value));
             }
             Uxpr::Assign{lhs, rhs} => {
                 self.desugar_expr(rhs);
                 match lhs {
                     LValue::Id(_id) => { }
-                    LValue::Field{base,field} => {
-                        panic!("NYI");
+                    LValue::Field{base, ..} => {
+                        self.desugar_expr(base);
                     }
                 }
             }
