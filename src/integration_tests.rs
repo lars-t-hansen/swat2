@@ -29,7 +29,51 @@ fn locals() {
 #[test]
 fn binop() {
     run_wast(&compile_swat("test/binop"),
-             "");
+             "
+assertEq(TEST.exports.add32(5,8), 13);
+assertEq(TEST.exports.sub32(5,8), -3);
+assertEq(TEST.exports.mul32(5,8), 40);
+assertEq(TEST.exports.div32(8,5), 1);
+assertEq(TEST.exports.udiv32(8,5), 1);
+assertEq(TEST.exports.rem32(8,5), 3);
+assertEq(TEST.exports.urem32(8,5), 3);
+assertEq(TEST.exports.shl32(5,2), 20);
+assertEq(TEST.exports.shr32(20,2), 5);
+assertEq(TEST.exports.ushr32(20,2), 5);
+assertEq(TEST.exports.and32(0x99,0xAA), 0x88);
+assertEq(TEST.exports.or32(0x99,0xAA), 0xBB);
+assertEq(TEST.exports.xor32(0x99,0xAA), 0x33);
+assertEq(TEST.exports.less32(5,8), 1);
+assertEq(TEST.exports.less32(8,5), 0);
+assertEq(TEST.exports.less32(8,8), 0);
+assertEq(TEST.exports.less_or_equal32(5,8), 1);
+assertEq(TEST.exports.less_or_equal32(8,5), 0);
+assertEq(TEST.exports.less_or_equal32(8,8), 1);
+assertEq(TEST.exports.greater32(5,8), 0);
+assertEq(TEST.exports.greater32(8,5), 1);
+assertEq(TEST.exports.greater32(8,8), 0);
+assertEq(TEST.exports.greater_or_equal32(5,8), 0);
+assertEq(TEST.exports.greater_or_equal32(8,5), 1);
+assertEq(TEST.exports.greater_or_equal32(8,8), 1);
+assertEq(TEST.exports.equal32(5,8), 0);
+assertEq(TEST.exports.equal32(8,8), 1);
+assertEq(TEST.exports.not_equal32(5,8), 1);
+assertEq(TEST.exports.not_equal32(8,8), 0);
+assertEq(TEST.exports.uless32(5,8), 1);
+assertEq(TEST.exports.uless32(8,5), 0);
+assertEq(TEST.exports.uless32(8,8), 0);
+assertEq(TEST.exports.uless_or_equal32(5,8), 1);
+assertEq(TEST.exports.uless_or_equal32(8,5), 0);
+assertEq(TEST.exports.uless_or_equal32(8,8), 1);
+assertEq(TEST.exports.ugreater32(5,8), 0);
+assertEq(TEST.exports.ugreater32(8,5), 1);
+assertEq(TEST.exports.ugreater32(8,8), 0);
+assertEq(TEST.exports.ugreater_or_equal32(5,8), 0);
+assertEq(TEST.exports.ugreater_or_equal32(8,5), 1);
+assertEq(TEST.exports.ugreater_or_equal32(8,8), 1);
+assertEq(TEST.exports.rotl32(0x12345678, 8), 0x34567812);
+assertEq(TEST.exports.rotr32(0x12345678, 8), 0x78123456);
+");
 }
 
 // Utility code.
