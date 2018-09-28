@@ -73,6 +73,67 @@ assertEq(TEST.exports.ugreater_or_equal32(8,5), 1);
 assertEq(TEST.exports.ugreater_or_equal32(8,8), 1);
 assertEq(TEST.exports.rotl32(0x12345678, 8), 0x34567812);
 assertEq(TEST.exports.rotr32(0x12345678, 8), 0x78123456);
+
+// TODO: i64 tests
+
+assertEq(TEST.exports.fadd32(5,8), 13);
+assertEq(TEST.exports.fsub32(5,8), -3);
+assertEq(TEST.exports.fmul32(5,8), 40);
+assertEq(TEST.exports.fdiv32(8,5), Math.fround(Math.fround(8)/Math.fround(5)));
+assertEq(TEST.exports.frem32(8,5), 3);
+assertEq(TEST.exports.fless32(5,8), 1);
+assertEq(TEST.exports.fless32(8,5), 0);
+assertEq(TEST.exports.fless32(8,8), 0);
+assertEq(TEST.exports.fless_or_equal32(5,8), 1);
+assertEq(TEST.exports.fless_or_equal32(8,5), 0);
+assertEq(TEST.exports.fless_or_equal32(8,8), 1);
+assertEq(TEST.exports.fgreater32(5,8), 0);
+assertEq(TEST.exports.fgreater32(8,5), 1);
+assertEq(TEST.exports.fgreater32(8,8), 0);
+assertEq(TEST.exports.fgreater_or_equal32(5,8), 0);
+assertEq(TEST.exports.fgreater_or_equal32(8,5), 1);
+assertEq(TEST.exports.fgreater_or_equal32(8,8), 1);
+assertEq(TEST.exports.fequal32(5,8), 0);
+assertEq(TEST.exports.fequal32(8,8), 1);
+assertEq(TEST.exports.fnot_equal32(5,8), 1);
+assertEq(TEST.exports.fnot_equal32(8,8), 0);
+assertEq(TEST.exports.fcopysign32(5, -1), -5);
+assertEq(TEST.exports.fcopysign32(-5, -1), -5);
+assertEq(TEST.exports.fcopysign32(-5, 1), 5);
+assertEq(TEST.exports.fcopysign32(5, 1), 5);
+
+assertEq(TEST.exports.fadd64(5,8), 13);
+assertEq(TEST.exports.fsub64(5,8), -3);
+assertEq(TEST.exports.fmul64(5,8), 40);
+assertEq(TEST.exports.fdiv64(8,5), 8/5);
+assertEq(TEST.exports.frem64(8,5), 3);
+assertEq(TEST.exports.fless64(5,8), 1);
+assertEq(TEST.exports.fless64(8,5), 0);
+assertEq(TEST.exports.fless64(8,8), 0);
+assertEq(TEST.exports.fless_or_equal64(5,8), 1);
+assertEq(TEST.exports.fless_or_equal64(8,5), 0);
+assertEq(TEST.exports.fless_or_equal64(8,8), 1);
+assertEq(TEST.exports.fgreater64(5,8), 0);
+assertEq(TEST.exports.fgreater64(8,5), 1);
+assertEq(TEST.exports.fgreater64(8,8), 0);
+assertEq(TEST.exports.fgreater_or_equal64(5,8), 0);
+assertEq(TEST.exports.fgreater_or_equal64(8,5), 1);
+assertEq(TEST.exports.fgreater_or_equal64(8,8), 1);
+assertEq(TEST.exports.fequal64(5,8), 0);
+assertEq(TEST.exports.fequal64(8,8), 1);
+assertEq(TEST.exports.fnot_equal64(5,8), 1);
+assertEq(TEST.exports.fnot_equal64(8,8), 0);
+assertEq(TEST.exports.fcopysign64(5, -1), -5);
+assertEq(TEST.exports.fcopysign64(-5, -1), -5);
+assertEq(TEST.exports.fcopysign64(-5, 1), 5);
+assertEq(TEST.exports.fcopysign64(5, 1), 5);
+
+let a = {};
+let b = {};
+assertEq(TEST.exports.equalp(a, b), 0);
+assertEq(TEST.exports.equalp(a, a), 1);
+assertEq(TEST.exports.not_equalp(a, b), 1);
+assertEq(TEST.exports.not_equalp(a, a), 0);
 ");
 }
 
