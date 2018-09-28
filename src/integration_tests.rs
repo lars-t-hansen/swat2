@@ -1,5 +1,6 @@
+extern crate tempfile;
+
 use std::env;
-use std::fs::File;
 use std::io::Write;
 use std::process::Command;
 
@@ -50,16 +51,18 @@ fn run_wast(wast_text:&str, code:&str) {
             panic!("Must have environment variable SWATJS pointing to JS shell")
         }
         Ok(cmd) => {
-            let tempfilename = "abracadabra.js";
-            {
-                let mut tmp = File::create(tempfilename).expect("Unable to create temp");
-                writeln!(tmp, "// Delete me.
+            let mut tmpfile = tempfile::NamedTempFile::new().expect("Unable to create temp file");
+
+            writeln!(tmpfile.as_file_mut(),
+                     "// Delete me.
 var TEST = new WebAssembly.Instance(new WebAssembly.Module(wasmTextToBinary(`
 {}
         `)));
 {}",
                          wast_text, code);
-            }
+
+            let temppath = tmpfile.into_temp_path();
+            let tempfilename = temppath.to_str().expect("Unable to name temp file");
             let (prog, mut args) = split_cmd_and_args(cmd);
             args.push(tempfilename.to_string());
             let exit_code = Command::new(prog)
