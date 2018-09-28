@@ -253,7 +253,16 @@ impl Check
                         }
                     }
                 }
-                expr.ty = lhs.ty;
+                match op {
+                    Binop::ULess | Binop::ULessOrEqual | Binop::UGreater | Binop::UGreaterOrEqual |
+                    Binop::Less | Binop::LessOrEqual | Binop::Greater | Binop::GreaterOrEqual |
+                    Binop::Equal | Binop::NotEqual => {
+                        expr.ty = Some(Type::I32);
+                    }
+                    _ => {
+                        expr.ty = lhs.ty;
+                    }
+                }
             }
             Uxpr::Unop{op, opd} => {
                 self.check_expr(opd);

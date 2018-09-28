@@ -32,12 +32,17 @@ Type checker:
 
 Desugarer:
 
-  - ===> Two missing rewrites that are logged in the text
+  - ===> One missing rewrite that is logged in the text
   - Expand true, false
   - Support unlabeled break and continue, add labels
   - Return stmt
   - Continue stmt
   - Block expressions
+
+Optimizer (does not yet exist):
+
+ - basic constant propagation will get rid of misc temporaries introduced by the
+   desugaring
 
 Flattener:
 

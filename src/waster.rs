@@ -1,4 +1,4 @@
-// -*- fill-column: 80 -*-
+// -*- fill-column: 100 -*-
 //
 // Generate SpiderMonkey wast code.
 //
@@ -133,16 +133,25 @@ impl<'a> Waster<'a>
                 self.emit(&format!("(br ${})", &label));
             }
             Uxpr::Binop{op, lhs, rhs} => {
-                self.emit(&format!("({}.{} ",
-                                   render_op_type(e.ty),
-                                   render_binop(*op, e.ty.unwrap())));
+                // What a mess.
+                let type_designator = match op {
+                    Binop::ULess | Binop::ULessOrEqual | Binop::UGreater | Binop::UGreaterOrEqual |
+                    Binop::Less | Binop::LessOrEqual | Binop::Greater | Binop::GreaterOrEqual |
+                    Binop::Equal | Binop::NotEqual => {
+                        render_op_type(lhs.ty)
+                    }
+                    _ => {
+                        render_op_type(e.ty)
+                    }
+                };
+                self.emit(&format!("({}.{} ", type_designator, render_binop(*op, lhs.ty.unwrap())));
                 self.wast_expr(&lhs);
                 self.emit(" ");
                 self.wast_expr(&rhs);
                 self.emit(")");
             }
             Uxpr::Unop{op, opd} => {
-                self.emit(&format!("({}.{} ", &render_op_type(opd.ty), render_unop(*op)));
+                self.emit(&format!("({}.{} ", &render_op_type(e.ty), render_unop(*op)));
                 self.wast_expr(&opd);
                 self.emit(")");
             }

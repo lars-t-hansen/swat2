@@ -220,14 +220,9 @@ impl Flatten
                 // things become too complicated in the waster.
                 panic!("NYI");
             }
-            Uxpr::New{ty_name, values} => {
-                // This becomes a structnew node, or we can keep the `new`
-                // the initializer names are stripped
-                // the initializer values are placed into the correct order
-                // note that reordering fields also reorders side effects, which
-                // means that really, we may need temps.  So maybe desugaring should
-                // take care of this.
-                panic!("NYI");
+            Uxpr::New{values, ..} => {
+                // Desugaring already ordered the initializers.
+                values.into_iter().for_each(|(_,e)| self.flatten_expr(e));
             }
             Uxpr::Assign{lhs, rhs} => {
                 self.flatten_expr(rhs);

@@ -105,25 +105,25 @@ module Binops
     pub fn fdiv32(x:f32, y:f32) -> f32 {
         x / y
     }
-    pub fn FIXME_SHOULD_TEST_FMOD_frem32(x:f32, y:f32) -> f32 {
-        x
+    pub fn frem32(x:f32, y:f32) -> f32 {
+        x % y
     }
-    pub fn fless32(x:f32, y:f32) -> f32 {
+    pub fn fless32(x:f32, y:f32) -> i32 {
         x < y
     }
-    pub fn fless_or_equal32(x:f32, y:f32) -> f32 {
+    pub fn fless_or_equal32(x:f32, y:f32) -> i32 {
         x <= y
     }
-    pub fn fgreater32(x:f32, y:f32) -> f32 {
+    pub fn fgreater32(x:f32, y:f32) -> i32 {
         x > y
     }
-    pub fn fgreater_or_equal32(x:f32, y:f32) -> f32 {
+    pub fn fgreater_or_equal32(x:f32, y:f32) -> i32 {
         x >= y
     }
-    pub fn fequal32(x:f32, y:f32) -> f32 {
+    pub fn fequal32(x:f32, y:f32) -> i32 {
         x == y
     }
-    pub fn fnot_equal32(x:f32, y:f32) -> f32 {
+    pub fn fnot_equal32(x:f32, y:f32) -> i32 {
         x != y
     }
     pub fn fcopysign32(x:f32, y:f32) -> f32 {
@@ -142,25 +142,25 @@ module Binops
     pub fn fdiv64(x:f64, y:f64) -> f64 {
         x / y
     }
-    pub fn FIXME_SHOULD_TEST_FMOD_frem64(x:f64, y:f64) -> f64 {
-        x
+    pub fn frem64(x:f64, y:f64) -> f64 {
+        x % y
     }
-    pub fn fless64(x:f64, y:f64) -> f64 {
+    pub fn fless64(x:f64, y:f64) -> i32 {
         x < y
     }
-    pub fn fless_or_equal64(x:f64, y:f64) -> f64 {
+    pub fn fless_or_equal64(x:f64, y:f64) -> i32 {
         x <= y
     }
-    pub fn fgreater64(x:f64, y:f64) -> f64 {
+    pub fn fgreater64(x:f64, y:f64) -> i32 {
         x > y
     }
-    pub fn fgreater_or_equal64(x:f64, y:f64) -> f64 {
+    pub fn fgreater_or_equal64(x:f64, y:f64) -> i32 {
         x >= y
     }
-    pub fn fequal64(x:f64, y:f64) -> f64 {
+    pub fn fequal64(x:f64, y:f64) -> i32 {
         x == y
     }
-    pub fn fnot_equal64(x:f64, y:f64) -> f64 {
+    pub fn fnot_equal64(x:f64, y:f64) -> i32 {
         x != y
     }
     pub fn fcopysign64(x:f64, y:f64) -> f64 {

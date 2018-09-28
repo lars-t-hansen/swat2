@@ -1,10 +1,12 @@
-// -*- fill-column: 80 -*-
+// -*- fill-column: 100 -*-
 //
 // Remove high-level syntax and operations that are not defined on the target
 // platform.  Currently:
 //
 // - `while` is rewritten as iterate+break
 // - `loop` is rewritten as iterate
+// - x % y is expanded to its computation if x and y are floats
+// - (not-equal x y) is rewritten as (eqz (equal x y)) if x and y are pointers
 // - (bitnot x) is rewritten as (xor x -1)
 // - (neg x) is rewritten as (- 0 x)
 // - (not x) is rewritten as (eqz x)
@@ -12,14 +14,13 @@
 //   direct mappings, some require expansion)
 // - `new` is rewritten with initializers in struct declaration order
 //
-// - TODO: (ne x y) is rewritten as (eqz (ref.eq x y)) if x and y are pointers
-// - TODO: rewrite x % y as something else if x and y are floats
-//
-// The desugarer can insert new blocks and variable bindings, it just can't
-// leave behind new instances of any of the forms it is trying to remove.
+// The desugarer can insert new blocks and variable bindings, it just can't leave behind new
+// instances of any of the forms it is trying to remove.
 
 use ast::*;
 use environment::*;
+use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::mem::swap;
 
 pub fn desugar(m:&mut Module) {
@@ -28,8 +29,8 @@ pub fn desugar(m:&mut Module) {
 }
 
 struct Desugarer {
-    // The carried Type value is not used here, we use environments simply to
-    // discover whether something is an intrinsic or not.
+    // The carried Type value is not used here, we use environments simply to discover whether
+    // something is an intrinsic or not.
     env:     Env<Type>
 }
 
@@ -128,16 +129,33 @@ impl Desugarer
             Uxpr::Binop{op, lhs, rhs} => {
                 match op {
                     Binop::NotEqual if is_ref_or_anyref_type(lhs.ty)  => {
-                        // (ne x y) => (eqz (eq x y))
-                        panic!("NYI");
+                        let mut new_lhs = box_void();
+                        swap(lhs, &mut new_lhs);
+                        let mut new_rhs = box_void();
+                        swap(rhs, &mut new_rhs);
+                        let cmp = box_binop(Some(Type::I32), Binop::Equal, new_lhs, new_rhs);
+                        replacement_expr = Some(box_unop(Some(Type::I32), Unop::Eqz, cmp));
                     }
                     Binop::Rem if is_float_type(lhs.ty) => {
-                        // Rewrite as: 
-                        //  { let _x = x;
-                        //    let _y = y;
-                        //    _x - trunc(_x / _y) * _y
-                        //  }
-                        panic!("NYI");
+                        let tmp_x = Id::gensym("tmp");
+                        let tmp_y = Id::gensym("tmp");
+                        let ty = lhs.ty;
+
+                        let mut new_lhs = box_void();
+                        swap(lhs, &mut new_lhs);
+
+                        let mut new_rhs = box_void();
+                        swap(rhs, &mut new_rhs);
+
+                        let mut block_items = vec![];
+                        block_items.push(BlockItem::Let(Box::new(LetDefn { name: tmp_x, ty: ty.unwrap(), init: new_lhs })));
+                        block_items.push(BlockItem::Let(Box::new(LetDefn { name: tmp_y, ty: ty.unwrap(), init: new_rhs })));
+                        let div = box_binop(ty, Binop::Div, box_id(ty, &tmp_x), box_id(ty, &tmp_y));
+                        let trunc = box_unop(ty, Unop::Trunc, div);
+                        let mul = box_binop(ty, Binop::Mul, trunc, box_id(ty, &tmp_y));
+                        let diff = box_binop(ty, Binop::Sub, box_id(ty, &tmp_x), mul);
+                        block_items.push(BlockItem::Expr(diff));
+                        replacement_expr = Some(Box::new(Expr { ty, u:  Uxpr::Block(Block{ ty, items: block_items}) }));
                     }
                     _ => {
                         self.desugar_expr(lhs);
@@ -209,37 +227,49 @@ impl Desugarer
                 self.desugar_expr(base);
             }
             Uxpr::New{ty_name, values} => {
-                // Reorganize the values so that they are in the right order for
-                // eventual structure construction (and so the names in the
-                // initializer list can be ignored).  Preserve the order of side
-                // effects.
-                //
-                // There are optimization opportunities here (fields already in
-                // order; fields unaffected by ordering or side effects) but
-                // ignore that for now.
+                // Reorganize the values so that they are in the right order for eventual structure
+                // construction (and so the names in the initializer list can be ignored).  Preserve
+                // the order of side effects.
 
-                let mut items = vec![];
+                let mut block_items = vec![];
                 let mut initializers = vec![];
 
                 for (field, mut value) in values.drain(0..) {
                     self.desugar_expr(&mut value);
                     let tmp_name = Id::gensym("tmp");
                     let field_ty = value.ty.unwrap();
-                    items.push(BlockItem::Let(Box::new(LetDefn { name: tmp_name,
-                                                                 ty:   field_ty,
-                                                                 init: value })));
+                    block_items.push(BlockItem::Let(Box::new(LetDefn { name: tmp_name,
+                                                                       ty:   field_ty,
+                                                                       init: value })));
                     initializers.push((field, Box::new(Expr { ty: Some(field_ty), u: Uxpr::Id(tmp_name) })))
                 }
 
-                // FIXME: initializers are not actually in the right order here, they
-                // must be sorted somehow!
+                let mut indices = HashMap::new();
+                match self.env.lookup(ty_name) {
+                    Some(Binding::Struct(s)) => {
+                        let fields = &s.1;
+                        let mut k = 0;
+                        fields.into_iter().for_each(|(name,_)| {
+                            indices.insert(name.clone(), k);
+                            k += 1;
+                        });
+                    }
+                    _ => unreachable!()
+                }
+                initializers.sort_by(|(a,_),(b,_)| {
+                    let a = indices.get(a).unwrap();
+                    let b = indices.get(b).unwrap();
+                    if a < b { Ordering::Less }
+                    else if a > b { Ordering::Greater }
+                    else { Ordering::Equal }
+                });
 
-                items.push(BlockItem::Expr(Box::new(Expr { ty: expr.ty,
-                                                           u:  Uxpr::New{ ty_name: *ty_name,
-                                                                          values:  initializers } })));
+                block_items.push(BlockItem::Expr(Box::new(Expr { ty: expr.ty,
+                                                                 u:  Uxpr::New{ ty_name: *ty_name,
+                                                                                values:  initializers } })));
                 replacement_expr = Some(Box::new(Expr { ty: expr.ty,
-                                                        u:  Uxpr::Block(Block{ ty: expr.ty,
-                                                                               items }) }));
+                                                        u:  Uxpr::Block(Block{ ty:    expr.ty,
+                                                                               items: block_items }) }));
             }
             Uxpr::Assign{lhs, rhs} => {
                 self.desugar_expr(rhs);

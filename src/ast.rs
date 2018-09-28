@@ -176,7 +176,6 @@ pub fn fmt_type(t:Option<Type>) -> String
     }
 }
 
-// Binops have equal operand types and result type
 #[derive(Clone, Copy, Debug)]
 pub enum Binop {
     Add,
@@ -207,8 +206,6 @@ pub enum Binop {
     Copysign,
 }
 
-// Unops usually have equal input and output types, but not for
-// conversions.
 #[derive(Clone, Copy, Debug)]
 pub enum Unop {
     // Surface syntax that's removed by desugaring
@@ -301,6 +298,10 @@ pub enum Number {
 
 pub fn box_void() -> Box<Expr> {
     Box::new(Expr{ ty: None, u: Uxpr::Void })
+}
+
+pub fn box_id(ty:Option<Type>, name:&Id) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::Id(*name) })
 }
 
 pub fn box_unop(ty:Option<Type>, op:Unop, opd:Box<Expr>) -> Box<Expr> {

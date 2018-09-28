@@ -26,6 +26,12 @@ fn locals() {
              "assertEq(TEST.exports.myfun(5), 8);");
 }
 
+#[test]
+fn binop() {
+    run_wast(&compile_swat("test/binop"),
+             "");
+}
+
 // Utility code.
 
 fn compile_swat(basename:&str) -> String {
