@@ -224,7 +224,7 @@ impl Check
                 self.check_expr(lhs);
                 self.check_expr(rhs);
                 if !is_same_type(lhs.ty, rhs.ty) {
-                    panic!("Binop requires equal types");
+                    panic!("Binop requires equal types {} {}", fmt_type(lhs.ty), fmt_type(rhs.ty));
                 }
                 match op {
                     Binop::UDiv | Binop::URem |

@@ -166,4 +166,11 @@ module Binops
     pub fn fcopysign64(x:f64, y:f64) -> f64 {
         copysign(x, y)
     }
+
+    pub fn equalp(x:anyref, y: anyref) -> i32 {
+    	x == y
+    }
+    pub fn not_equalp(x:anyref, y: anyref) -> i32 {
+        x != y
+    }
 }

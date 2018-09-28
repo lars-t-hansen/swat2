@@ -23,6 +23,7 @@ impl<'a> Waster<'a>
 {
     fn wast_module(&mut self, m:&Module) {
         self.emit("(module\n");
+        self.emit("(gc_feature_opt_in 1)\n");
         for item in &m.items {
             match item {
                 ModItem::Var(v)    => { self.wast_global(&v); }

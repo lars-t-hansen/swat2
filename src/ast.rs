@@ -397,6 +397,7 @@ pub fn is_same_type(t1:Option<Type>, t2:Option<Type>) -> bool {
         (Some(Type::I64), Some(Type::I64)) => true,
         (Some(Type::F32), Some(Type::F32)) => true,
         (Some(Type::F64), Some(Type::F64)) => true,
+        (Some(Type::AnyRef), Some(Type::AnyRef)) => true,
         (Some(Type::CookedRef(name1)), Some(Type::CookedRef(name2))) => name1 == name2,
         (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
         (Some(_), Some(Type::RawRef(_))) => unreachable!(),
