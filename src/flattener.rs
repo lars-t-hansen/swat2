@@ -179,22 +179,7 @@ impl Flatten
             Uxpr::Unop{opd, ..} => {
                 self.flatten_expr(opd);
             }
-            Uxpr::Typeop{..} => {
-                // we should rewrite:
-                //  x is s => (block (drop x) true),  if typeof(x) is s or s is anyref
-                //  x to t => x,  if typeof(x) is t or t is anyref
-                //
-                // also:
-                //  we only have a `narrow` operator, so after the above cleanup,
-                //    (x is s) => ((narrow x s) != null)
-                //    (x to t) => (let tmp = (narrow x s); if tmp == null { trap() } else { tmp })
-                //  where the tmp is an indication that we should do some of this during
-                //  desugaring.
-                //
-                // we could in principle handle the optimizations on the narrowing operation here?
-                // are they optimizations or correctness-ensuring transforms?
-                //
-                // perhaps desugaring rewrites as "exact-downcast" and we flatten that to struct.narrow.
+            Uxpr::ExactFallibleUnboxAnyRef{..} => {
                 panic!("NYI");
             }
             Uxpr::Call{actuals, ..} => {
@@ -247,7 +232,7 @@ impl Flatten
                     }
                 }
             }
-            Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) |
+            Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) | Uxpr::Typeop{..} |
             Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
             Uxpr::GetField{..} | Uxpr::SetField{..} => {
                 unreachable!();

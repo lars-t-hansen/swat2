@@ -283,7 +283,7 @@ impl Check
                         }
                     }
                     Unop::Clz | Unop::Ctz | Unop::Popcnt | Unop::Eqz |
-                    Unop::Extend8 | Unop::Extend16 | Unop::Extend32 |
+                    Unop::Extend8 | Unop::Extend16 | Unop::Extend32 | Unop::IsNull |
                     Unop::Sqrt | Unop::Ceil | Unop::Floor | Unop::Nearest | Unop::Trunc |
                     Unop::I32ToI64 | Unop::U32ToI64 | Unop::I64ToI32 => {
                         unreachable!();
@@ -433,6 +433,7 @@ impl Check
                 }
             }
             Uxpr::Block(_) | Uxpr::Iterate{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) |
+            Uxpr::ExactFallibleUnboxAnyRef{..} |
             Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
             Uxpr::GetField{..} | Uxpr::SetField{..} => {
                 unreachable!();

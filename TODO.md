@@ -1,4 +1,18 @@
-For MVP "simple programming language":
+In progress: structs!
+
+ - we have
+    - top-level    struct S { field: type, ... }
+    - constructor  new S { field: value, ... }
+    - read         ... = s.field
+    - write        s.field = ...
+    - predicate    x is S
+    - downcast     x as S
+ - done with parsing, type checking, and possibly with desugaring
+ - more work in flattening [some may move into desugaring]
+ - more work in wasting
+
+
+Other things in flight for MVP "simple programming language":
 
 Testing with `cargo test`:
 
@@ -32,7 +46,6 @@ Type checker:
 
 Desugarer:
 
-  - ===> One missing rewrite that is logged in the text
   - Expand true, false
   - Support unlabeled break and continue, add labels
   - Return stmt

@@ -5,7 +5,8 @@
 //
 // - `while` is rewritten as iterate+break
 // - `loop` is rewritten as iterate
-// - x % y is expanded to its computation if x and y are floats
+// - `x % y` is expanded to its computation if x and y are floats
+// - `x as T` and `x is T` are rewritten in terms of a nontrapping narrowing operation
 // - (not-equal x y) is rewritten as (eqz (equal x y)) if x and y are pointers
 // - (bitnot x) is rewritten as (xor x -1)
 // - (neg x) is rewritten as (- 0 x)
@@ -16,6 +17,9 @@
 //
 // The desugarer can insert new blocks and variable bindings, it just can't leave behind new
 // instances of any of the forms it is trying to remove.
+//
+// The line between desugaring and flattening is a little blurry, but flattening should not
+// introduce new names, so anything that needs temps gets put into desugaring.
 
 use ast::*;
 use environment::*;
@@ -190,8 +194,50 @@ impl Desugarer
                     _ => { }
                 }
             }
-            Uxpr::Typeop{lhs, ..} => {
+            Uxpr::Typeop{op, lhs, rhs} => {
                 self.desugar_expr(lhs);
+
+                let mut new_lhs = box_void();
+                swap(lhs, &mut new_lhs);
+
+                let rhs = *rhs;
+
+                match (new_lhs.ty, &rhs) {
+                    (Some(Type::CookedRef(_)), Type::CookedRef(_)) |
+                    (_, Type::AnyRef) => {
+                        match op {
+                            Typeop::Is => {
+                                // rewrite as (begin lhs true)
+                                panic!("NYI");
+                            }
+                            Typeop::As => {
+                                replacement_expr = Some(new_lhs);
+                            }
+                        }
+                    }
+                    (Some(Type::AnyRef), Type::CookedRef(_)) => {
+                        let narrow = Box::new(Expr { ty: expr.ty,
+                                                     u:  Uxpr::ExactFallibleUnboxAnyRef{ to: rhs,
+                                                                                         value: new_lhs }});
+                        match op {
+                            Typeop::Is => {
+                                replacement_expr = Some(box_unop(Some(Type::I32), Unop::IsNull, narrow));
+                            }
+                            Typeop::As => {
+                                // rewrite as
+                                // { let tmp = (struct.narrow anyref (ref $S) lhs);
+                                //   if (ref.is_null tmp) { trap() } else { }
+                                //   tmp
+                                // }
+                                panic!("NYI");
+                            }
+                        }
+                    }
+                    _ => {
+                        unreachable!();
+                    }
+                }
+                
             }
             Uxpr::Call{name, actuals} => {
                 for actual in &mut *actuals {
@@ -280,7 +326,7 @@ impl Desugarer
                     }
                 }
             }
-            Uxpr::Block(_) | Uxpr::Sequence{..} | Uxpr::Drop(_) |
+            Uxpr::Block(_) | Uxpr::Sequence{..} | Uxpr::Drop(_) | Uxpr::ExactFallibleUnboxAnyRef{..} |
             Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
             Uxpr::GetField{..} | Uxpr::SetField{..} => {
                 unreachable!();

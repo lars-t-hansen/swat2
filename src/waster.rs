@@ -156,7 +156,7 @@ impl<'a> Waster<'a>
                 self.wast_expr(&opd);
                 self.emit(")");
             }
-            Uxpr::Typeop{..} => {
+            Uxpr::ExactFallibleUnboxAnyRef{..} => {
                 panic!("NYI");
             }
             Uxpr::Call{name, actuals} => {
@@ -209,7 +209,7 @@ impl<'a> Waster<'a>
             Uxpr::New{ty_name, values} => {
                 panic!("NYI");
             }
-            Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block(_) |
+            Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block(_) | Uxpr::Typeop{..} |
             Uxpr::Assign{..} | Uxpr::Id(_) | Uxpr::Deref{..} =>
             {
                 unreachable!();
@@ -315,6 +315,7 @@ fn render_unop(op:Unop) -> &'static str {
         Unop::Extend8 => "extend8_s",
         Unop::Extend16 => "extend16_s",
         Unop::Extend32 => "extend32_s",
+        Unop::IsNull => "is_null",
         Unop::Sqrt => "sqrt",
         Unop::Ceil => "ceil",
         Unop::Floor => "floor",

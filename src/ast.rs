@@ -213,7 +213,7 @@ pub enum Unop {
     Not,
     BitNot,
 
-    // Operators that are introduced by desugaring intrinsic calls
+    // Operators that are introduced by desugaring intrinsic calls or operators
     Clz,
     Ctz,
     Popcnt,
@@ -226,6 +226,7 @@ pub enum Unop {
     Nearest,
     Trunc,
     Eqz,
+    IsNull,
     I32ToI64,
     U32ToI64,
     I64ToI32,
@@ -268,6 +269,7 @@ pub enum Uxpr {
 
     // Introduced by desugaring.
     Iterate{break_label:Id, continue_label:Id, body:Box<Block>},
+    ExactFallibleUnboxAnyRef{to: Type, value: Box<Expr>},
 
     // Introduced by flattening.
     GetLocal{name: Id},
