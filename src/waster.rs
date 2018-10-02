@@ -184,8 +184,8 @@ impl<'a> Waster<'a>
                 }
                 self.emit(")");
             }
-            Uxpr::NumLit(n) => {
-                match n {
+            Uxpr::NumLit{value} => {
+                match value {
                     Number::I32(k) => { self.emit(&format!("(i32.const {})", k)) }
                     Number::I64(k) => { self.emit(&format!("(i64.const {})", k)) }
                     Number::F32(k) => { self.emit(&format!("(f32.const {})", k)) }
@@ -196,9 +196,9 @@ impl<'a> Waster<'a>
                 // FIXME: Not adequate for structs
                 self.emit("(ref.null anyref)");
             }
-            Uxpr::Drop(e) => {
+            Uxpr::Drop{value} => {
                 self.emit("(drop ");
-                self.wast_expr(&e);
+                self.wast_expr(&value);
                 self.emit(")\n");
             }
             Uxpr::GetLocal{name} => {
@@ -245,8 +245,8 @@ impl<'a> Waster<'a>
                 });
                 self.emit(")");
             }
-            Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block(_) | Uxpr::Typeop{..} |
-            Uxpr::Assign{..} | Uxpr::Id(_) | Uxpr::Deref{..} =>
+            Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block{..} | Uxpr::Typeop{..} |
+            Uxpr::Assign{..} | Uxpr::Id{..} | Uxpr::Deref{..} =>
             {
                 unreachable!();
             }

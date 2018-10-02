@@ -38,6 +38,15 @@ In progress: structs!
  - a little more work in wasting to handle new ast node
 
 
+// Coding style for enumerations:
+//
+// - if one arm uses named fields then they all do (except when there are not
+//   data, just the tag)
+// - by and large, if the arms use unnamed fields then there should be just
+//   one field
+//
+// Violated by the environments, largely.
+
 Other things in flight for MVP "simple programming language":
 
 Testing with `cargo test`:
@@ -48,6 +57,7 @@ Lexer / parser:
 
   - ===> Better lexer - what we have does not work well for strings and %%JS
   - ===> Comments
+  - use box_whatever abstractions
   - Propagate errors up the tree, do not panic
   - Probably a "continue" thing
   - Unlabeled break and continue

@@ -221,7 +221,7 @@ PrimaryExpr: Box<Expr> = {
         if let Some(actuals) = actuals {
             Box::new(Expr{ty: None, u:Uxpr::Call{name, actuals}})
         } else {
-            Box::new(Expr{ty: None, u:Uxpr::Id(name)})
+            Box::new(Expr{ty: None, u:Uxpr::Id{name}})
         }
     },
     <base:PrimaryExpr> "." <field:Id> => {
@@ -232,19 +232,22 @@ PrimaryExpr: Box<Expr> = {
         match char::from(bs[bs.len()-1]) {
             'i' | 'I' => {
                 match i32::from_str_radix(&n[..n.len()-1], 10) {
-                    Ok(v) => Box::new(Expr{ty:Some(Type::I32), u:Uxpr::NumLit(Number::I32(v))}),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::I32),
+                                           u: Uxpr::NumLit{value: Number::I32(v)}}),
                     Err(_) => panic!("Not a valid i32 literal {}", n)
                 }
             }
             'l' | 'L' => {
                 match i64::from_str_radix(&n[..n.len()-1], 10) {
-                    Ok(v) => Box::new(Expr{ty:Some(Type::I64), u:Uxpr::NumLit(Number::I64(v))}),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::I64),
+                                           u: Uxpr::NumLit{value: Number::I64(v)}}),
                     Err(_) => panic!("Not a valid i64 literal {}", n)
                 }
             }
             _ => {
                 match i32::from_str_radix(&n, 10) {
-                    Ok(v) => Box::new(Expr{ty:Some(Type::I32), u:Uxpr::NumLit(Number::I32(v))}),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::I32),
+                                           u: Uxpr::NumLit{value: Number::I32(v)}}),
                     Err(_) => panic!("Not a valid int literal {}", n)
                 }
             }
@@ -255,19 +258,22 @@ PrimaryExpr: Box<Expr> = {
         match char::from(bs[bs.len()-1]) {
             'f' | 'F' => {
                 match f32::from_str(&n[..n.len()-1]) {
-                    Ok(v) => Box::new(Expr{ty:Some(Type::F32), u:Uxpr::NumLit(Number::F32(v))}),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::F32),
+                                           u: Uxpr::NumLit{value: Number::F32(v)}}),
                     Err(_) => panic!("Not a valid f32 literal {}", n)
                 }
             }
             'd' | 'D' => {
                 match f64::from_str(&n[..n.len()-1]) {
-                    Ok(v) => Box::new(Expr{ty:Some(Type::F64), u:Uxpr::NumLit(Number::F64(v))}),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::F64),
+                                           u: Uxpr::NumLit{value: Number::F64(v)}}),
                     Err(_) => panic!("Not a valid f64 literal {}", n)
                 }
             }
             _ => {
                 match f64::from_str(&n) {
-                    Ok(v) => Box::new(Expr{ty:Some(Type::F64), u:Uxpr::NumLit(Number::F64(v))}),
+                    Ok(v) => Box::new(Expr{ty:Some(Type::F64),
+                                           u: Uxpr::NumLit{value: Number::F64(v)}}),
                     Err(_) => panic!("Not a valid f64 literal {}", n)
                 }
             }

@@ -91,7 +91,7 @@ impl Desugarer
         let mut replacement_expr = None;
         match &mut expr.u {
             Uxpr::Void => { }
-            Uxpr::NumLit(_) => { }
+            Uxpr::NumLit{..} => { }
             Uxpr::NullLit => { }
             Uxpr::If{test, consequent, alternate} => {
                 self.desugar_expr(test);
@@ -273,7 +273,7 @@ impl Desugarer
                     }
                 }
             }
-            Uxpr::Id(_id) => { }
+            Uxpr::Id{..} => { }
             Uxpr::Deref{base, ..} => {
                 self.desugar_expr(base);
             }
@@ -325,7 +325,7 @@ impl Desugarer
                     }
                 }
             }
-            Uxpr::Block(_) | Uxpr::Sequence{..} | Uxpr::Drop(_) |
+            Uxpr::Block{..} | Uxpr::Sequence{..} | Uxpr::Drop{..} |
             Uxpr::ExactFallibleUnboxAnyRef{..} | Uxpr::DowncastFailed |
             Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
             Uxpr::GetField{..} | Uxpr::SetField{..} => {

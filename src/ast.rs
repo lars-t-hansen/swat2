@@ -1,13 +1,5 @@
 /* -*- fill-column: 80 -*- */
 
-// Coding style for enumerations:
-//
-// - if one arm uses named fields then they all do
-// - by and large, if the arms use unnamed fields then there should be just
-//   one field
-//
-// Uxpr and LValue need to be updated to conform to the style.
-
 use std::fmt;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -256,39 +248,39 @@ pub struct Expr {
 #[derive(Debug)]
 pub enum Uxpr {
     // `Block` is introduced by desugaring (for now).
-    // `While` and `Loop` are removed by desugaring.
+    // `While` and `Loop` and `TypeOp` are removed by desugaring.
     // `Id`, `Assign`, and `Block` are removed by flattening.
     Void,
-    NumLit(Number),
+    NumLit{value: Number},
     NullLit,
-    Id(Id),
-    Deref{base:Box<Expr>, field:Id},
-    New{ty_name:Id, values:Vec<(Id,Box<Expr>)>}, // "initializers" would be better than "values"
-    If{test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>},
-    While{test:Box<Expr>, body:Box<Block>},
-    Loop{break_label:Id, body:Box<Block>},
-    Break{label:Id},
-    Block(Block),
-    Binop{op:Binop, lhs:Box<Expr>, rhs:Box<Expr>},
-    Unop{op:Unop, opd:Box<Expr>},
-    Typeop{op:Typeop, lhs:Box<Expr>, rhs:Type},
-    Assign{lhs:LValue, rhs:Box<Expr>},
-    Call{name:Id, actuals:Vec<Box<Expr>>},
+    Id{name: Id},
+    Deref{base: Box<Expr>, field: Id},
+    New{ty_name: Id, values: Vec<(Id,Box<Expr>)>}, // "initializers" would be better than "values"
+    If{test: Box<Expr>, consequent: Box<Block>, alternate: Box<Block>},
+    While{test: Box<Expr>, body: Box<Block>},
+    Loop{break_label: Id, body: Box<Block>},
+    Break{label: Id},
+    Block{block: Block},
+    Binop{op: Binop, lhs: Box<Expr>, rhs: Box<Expr>},
+    Unop{op: Unop, opd: Box<Expr>},
+    Typeop{op: Typeop, lhs: Box<Expr>, rhs: Type},
+    Assign{lhs: LValue, rhs: Box<Expr>},
+    Call{name: Id, actuals: Vec<Box<Expr>>},
 
     // Introduced by desugaring.
-    Iterate{break_label:Id, continue_label:Id, body:Box<Block>},
+    Iterate{break_label: Id, continue_label: Id, body: Box<Block>},
     ExactFallibleUnboxAnyRef{to: Type, value: Box<Expr>},
     DowncastFailed,
 
     // Introduced by flattening.
     GetLocal{name: Id},
     GetGlobal{name: Id},
-    SetLocal{name:Id, value:Box<Expr>},
-    SetGlobal{name:Id, value:Box<Expr>},
-    GetField{base:Box<Expr>, field:Id},
-    SetField{base:Box<Expr>, field:Id, value:Box<Expr>},
-    Sequence{ty:Option<Type>, body:Vec<Box<Expr>>},
-    Drop(Box<Expr>)
+    SetLocal{name: Id, value: Box<Expr>},
+    SetGlobal{name: Id, value: Box<Expr>},
+    GetField{base: Box<Expr>, field: Id},
+    SetField{base: Box<Expr>, field: Id, value: Box<Expr>},
+    Sequence{ty: Option<Type>, body: Vec<Box<Expr>>},
+    Drop{value: Box<Expr>}
 }
 
 #[derive(Debug)]
@@ -321,7 +313,7 @@ pub fn box_void() -> Box<Expr> {
 }
 
 pub fn box_id(ty:Option<Type>, name:&Id) -> Box<Expr> {
-    Box::new(Expr{ ty, u: Uxpr::Id(*name) })
+    Box::new(Expr{ ty, u: Uxpr::Id{name: *name} })
 }
 
 pub fn box_unop(ty:Option<Type>, op:Unop, opd:Box<Expr>) -> Box<Expr> {
@@ -349,7 +341,7 @@ pub fn box_new(ty:Option<Type>, ty_name:&Id, values: Vec<(Id, Box<Expr>)>) -> Bo
 }
 
 pub fn box_block_expr(ty: Option<Type>, items: Vec<BlockItem>) -> Box<Expr> {
-    Box::new(Expr { ty, u: Uxpr::Block(Block{ ty, items}) })
+    Box::new(Expr { ty, u: Uxpr::Block{block: Block{ ty, items }}})
 }
 
 pub fn box_if(test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>) -> Box<Expr> {
@@ -394,16 +386,16 @@ pub fn box_set_global(name:&Id, value:Box<Expr>) -> Box<Expr> {
 
 pub fn box_intlit(n:i64, ty:Type) -> Box<Expr> {
     match ty {
-        Type::I32 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit(Number::I32(n as i32)) }),
-        Type::I64 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit(Number::I64(n)) }),
-        Type::F32 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit(Number::F32(n as f32)) }),
-        Type::F64 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit(Number::F64(n as f64)) }),
+        Type::I32 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit{value: Number::I32(n as i32)}}),
+        Type::I64 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit{value: Number::I64(n)}}),
+        Type::F32 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit{value: Number::F32(n as f32)}}),
+        Type::F64 => Box::new(Expr{ ty: Some(ty), u: Uxpr::NumLit{value: Number::F64(n as f64)}}),
         _         => panic!("Can't happen")
     }
 }
 
 pub fn box_drop(e:Box<Expr>) -> Box<Expr> {
-    Box::new(Expr{ty:None, u: Uxpr::Drop(e)})
+    Box::new(Expr{ty:None, u: Uxpr::Drop{value: e}})
 }
 
 // Type utilities

@@ -133,7 +133,7 @@ impl Flatten
             Uxpr::Void => {
                 replacement_expr = Some(box_empty_sequence());
             }
-            Uxpr::NumLit(_) => { }
+            Uxpr::NumLit{..} => { }
             Uxpr::NullLit => { }
             Uxpr::If{test, consequent, alternate} => {
                 self.flatten_expr(test);
@@ -145,14 +145,14 @@ impl Flatten
                 self.env.locals.add_label(&continue_label);
                 self.flatten_block(body);
             }
-            Uxpr::Block(b) => {
-                self.flatten_block(b);
-                match b.items.len() {
+            Uxpr::Block{block} => {
+                self.flatten_block(block);
+                match block.items.len() {
                     0 => {
                         replacement_expr = Some(box_empty_sequence());
                     }
                     1 => {
-                        if let BlockItem::Expr(e) = b.items.remove(0) {
+                        if let BlockItem::Expr(e) = block.items.remove(0) {
                             replacement_expr = Some(e)
                         } else {
                             unreachable!();
@@ -178,13 +178,13 @@ impl Flatten
                     self.flatten_expr(actual);
                 }
             }
-            Uxpr::Id(id) => {
-                match self.env.lookup(&id) {
+            Uxpr::Id{name} => {
+                match self.env.lookup(&name) {
                     Some(Binding::Local(new_name)) => {
                         replacement_expr = Some(box_get_local(expr.ty, &new_name));
                     }
                     Some(Binding::Global(_mutable, _)) => {
-                        replacement_expr = Some(box_get_global(expr.ty, &id));
+                        replacement_expr = Some(box_get_global(expr.ty, &name));
                     }
                     _ => { unreachable!(); }
                 }
@@ -222,7 +222,7 @@ impl Flatten
                     }
                 }
             }
-            Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) | Uxpr::Typeop{..} |
+            Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Sequence{..} | Uxpr::Drop{..} | Uxpr::Typeop{..} |
             Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
             Uxpr::GetField{..} | Uxpr::SetField{..} => {
                 unreachable!();

@@ -169,7 +169,7 @@ impl Check
 
     fn check_const_expr(&mut self, e:&mut Expr) {
         match e.u {
-            Uxpr::NumLit(_n) => { /* Carries correct type */ }
+            Uxpr::NumLit{..} => { /* Carries correct type */ }
             Uxpr::Void       => { /* Carries correct type */ }
             _                => { panic!("Not a constant expression"); }
         }
@@ -180,7 +180,7 @@ impl Check
             Uxpr::Void => {
                 assert!(expr.ty.is_none());
             }
-            Uxpr::NumLit(_) => {
+            Uxpr::NumLit{..} => {
                 assert!(is_num_type(expr.ty));
             }
             Uxpr::NullLit => {
@@ -350,8 +350,8 @@ impl Check
                     panic!("Call to unbound name: {}", &name);
                 }
             }
-            Uxpr::Id(id) => {
-                match self.env.lookup(&id) {
+            Uxpr::Id{name} => {
+                match self.env.lookup(&name) {
                     Some(Binding::Label) => {
                         panic!("No first-class labels");
                     }
@@ -368,7 +368,7 @@ impl Check
                         panic!("No first-class types");
                     }
                     None => {
-                        panic!("Reference to unknown variable {}", id)
+                        panic!("Reference to unknown variable {}", name)
                     }
                 }
             }
@@ -432,7 +432,7 @@ impl Check
                     }
                 }
             }
-            Uxpr::Block(_) | Uxpr::Iterate{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) |
+            Uxpr::Block{..} | Uxpr::Iterate{..} | Uxpr::Sequence{..} | Uxpr::Drop{..} |
             Uxpr::ExactFallibleUnboxAnyRef{..} | Uxpr::DowncastFailed |
             Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
             Uxpr::GetField{..} | Uxpr::SetField{..} => {
