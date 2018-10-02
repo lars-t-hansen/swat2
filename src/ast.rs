@@ -1,5 +1,13 @@
 /* -*- fill-column: 80 -*- */
 
+// Coding style for enumerations:
+//
+// - if one arm uses named fields then they all do
+// - by and large, if the arms use unnamed fields then there should be just
+//   one field
+//
+// Uxpr and LValue need to be updated to conform to the style.
+
 use std::fmt;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -285,7 +293,7 @@ pub enum Uxpr {
 
 #[derive(Debug)]
 pub enum LValue {
-    Id(Id),
+    Id{name:Id},
     Field{base: Box<Expr>, field:Id}
 }
 

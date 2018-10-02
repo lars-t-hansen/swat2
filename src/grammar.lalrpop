@@ -106,7 +106,7 @@ AssignExpr: Box<Expr> = {
 }
 
 LValue: LValue = {
-    <lhs:Id> => LValue::Id(lhs),
+    <name:Id> => LValue::Id{name},
     <base:PrimaryExpr> "." <field:Id> => LValue::Field{base, field}
 }
 

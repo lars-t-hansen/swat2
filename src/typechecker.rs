@@ -410,14 +410,14 @@ impl Check
             Uxpr::Assign{lhs, rhs} => {
                 self.check_expr(rhs);
                 match lhs {
-                    LValue::Id(id) => {
-                        let t = match self.env.lookup(&id) {
+                    LValue::Id{name} => {
+                        let t = match self.env.lookup(&name) {
                             Some(Binding::Local(t)) =>
                                 t,
                             Some(Binding::Global(mutable, t)) =>
                                 if mutable { t } else { panic!("Can't assign to constant"); },
                             _ => 
-                                panic!("Not a reference to a variable: {}", &id)
+                                panic!("Not a reference to a variable: {}", &name)
                         };
                         if !is_same_type(Some(t), rhs.ty) {
                             panic!("Type of value being stored does not match variable");

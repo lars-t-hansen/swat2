@@ -202,16 +202,16 @@ impl Flatten
             Uxpr::Assign{lhs, rhs} => {
                 self.flatten_expr(rhs);
                 match lhs {
-                    LValue::Id(id) => {
+                    LValue::Id{name} => {
                         let mut new_rhs = box_void();
                         swap(rhs, &mut new_rhs);
 
-                        match self.env.lookup(&id) {
+                        match self.env.lookup(&name) {
                             Some(Binding::Local(new_name)) => {
                                 replacement_expr = Some(box_set_local(&new_name, new_rhs));
                             }
                             Some(Binding::Global(_mutable, _)) => {
-                                replacement_expr = Some(box_set_global(&id, new_rhs));
+                                replacement_expr = Some(box_set_global(&name, new_rhs));
                             }
                             _ => { unreachable!() }
                         }

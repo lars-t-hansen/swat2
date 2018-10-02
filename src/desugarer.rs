@@ -6,7 +6,8 @@
 // - `while` is rewritten as iterate+break
 // - `loop` is rewritten as iterate
 // - `x % y` is expanded to its computation if x and y are floats
-// - `x as T` and `x is T` are rewritten in terms of a nontrapping narrowing operation
+// - `x as T` and `x is T` are rewritten in terms of a fallible narrowing
+//   operation + explicit traps when required
 // - (not-equal x y) is rewritten as (eqz (equal x y)) if x and y are pointers
 // - (bitnot x) is rewritten as (xor x -1)
 // - (neg x) is rewritten as (- 0 x)
@@ -318,7 +319,7 @@ impl Desugarer
             Uxpr::Assign{lhs, rhs} => {
                 self.desugar_expr(rhs);
                 match lhs {
-                    LValue::Id(_id) => { }
+                    LValue::Id{..} => { }
                     LValue::Field{base, ..} => {
                         self.desugar_expr(base);
                     }
