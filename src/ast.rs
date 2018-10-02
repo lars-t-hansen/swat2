@@ -270,6 +270,7 @@ pub enum Uxpr {
     // Introduced by desugaring.
     Iterate{break_label:Id, continue_label:Id, body:Box<Block>},
     ExactFallibleUnboxAnyRef{to: Type, value: Box<Expr>},
+    DowncastFailed,
 
     // Introduced by flattening.
     GetLocal{name: Id},
@@ -298,6 +299,15 @@ pub enum Number {
 
 // Utilities for AST construction and rewriting
 
+pub fn box_let(name: &Id, ty: Type, init: Box<Expr>) -> Box<LetDefn> {
+    Box::new(LetDefn { name: *name, ty, init })
+}
+
+pub fn box_block(exprs:Vec<Box<Expr>>) -> Box<Block> {
+    Box::new(Block{ ty: None, items: exprs.into_iter().map(|e| BlockItem::Expr(e)).collect() })
+}
+
+
 pub fn box_void() -> Box<Expr> {
     Box::new(Expr{ ty: None, u: Uxpr::Void })
 }
@@ -310,16 +320,28 @@ pub fn box_unop(ty:Option<Type>, op:Unop, opd:Box<Expr>) -> Box<Expr> {
     Box::new(Expr{ ty, u: Uxpr::Unop{ op, opd } })
 }
 
-pub fn box_typeop(ty:Option<Type>, op:Typeop, lhs:Box<Expr>, rhs:Type) -> Box<Expr> {
-    Box::new(Expr{ ty, u: Uxpr::Typeop{ op, lhs, rhs } })
-}
-
 pub fn box_binop(ty:Option<Type>, op:Binop, lhs:Box<Expr>, rhs:Box<Expr>) -> Box<Expr> {
     Box::new(Expr{ ty, u: Uxpr::Binop{ op, lhs, rhs } })
 }
 
-pub fn box_block(exprs:Vec<Box<Expr>>) -> Box<Block> {
-    Box::new(Block{ ty: None, items: exprs.into_iter().map(|e| BlockItem::Expr(e)).collect() })
+pub fn box_typeop(ty:Option<Type>, op:Typeop, lhs:Box<Expr>, rhs:Type) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::Typeop{ op, lhs, rhs } })
+}
+
+pub fn box_downcast(ty:Option<Type>, to:Type, value:Box<Expr>) -> Box<Expr> {
+    Box::new(Expr { ty, u: Uxpr::ExactFallibleUnboxAnyRef{ to, value } })
+}
+
+pub fn box_downcast_failed() -> Box<Expr> {
+    Box::new(Expr { ty: None, u:  Uxpr::DowncastFailed })
+}
+
+pub fn box_new(ty:Option<Type>, ty_name:&Id, values: Vec<(Id, Box<Expr>)>) -> Box<Expr> {
+    Box::new(Expr { ty, u: Uxpr::New{ ty_name: *ty_name, values } })
+}
+
+pub fn box_block_expr(ty: Option<Type>, items: Vec<BlockItem>) -> Box<Expr> {
+    Box::new(Expr { ty, u: Uxpr::Block(Block{ ty, items}) })
 }
 
 pub fn box_if(test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>) -> Box<Expr> {

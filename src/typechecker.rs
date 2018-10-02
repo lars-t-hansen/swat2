@@ -433,7 +433,7 @@ impl Check
                 }
             }
             Uxpr::Block(_) | Uxpr::Iterate{..} | Uxpr::Sequence{..} | Uxpr::Drop(_) |
-            Uxpr::ExactFallibleUnboxAnyRef{..} |
+            Uxpr::ExactFallibleUnboxAnyRef{..} | Uxpr::DowncastFailed |
             Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
             Uxpr::GetField{..} | Uxpr::SetField{..} => {
                 unreachable!();

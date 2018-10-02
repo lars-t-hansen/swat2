@@ -46,21 +46,11 @@ impl Flatten
         (&m.items).into_iter().for_each(|item| self.env.define_toplevel(item));
         for item in &mut m.items {
             match item {
-                ModItem::Var(v)    => { self.flatten_global(v) }
-                ModItem::Fn(f)     => { self.flatten_function(f); }
-                ModItem::Struct(s) => { self.flatten_struct(s); }
+                ModItem::Var(v)     => { self.flatten_global(v) }
+                ModItem::Fn(f)      => { self.flatten_function(f); }
+                ModItem::Struct(_s) => { /* Nothing to do */ }
             }
         }
-    }
-
-    fn flatten_struct(&mut self, s:&mut StructDef) {
-        // This either does nothing, or it assigns field indices to the fields
-        // and stores them in the environment somehow.  This could be a type
-        // parameter to Env, but sort of hairy.
-        //
-        // If it does assign indices, it must run in a separate pass before
-        // function bodies.
-        panic!("NYI");
     }
 
     fn flatten_global(&mut self, g:&mut GlobalDef) {
@@ -179,9 +169,10 @@ impl Flatten
             Uxpr::Unop{opd, ..} => {
                 self.flatten_expr(opd);
             }
-            Uxpr::ExactFallibleUnboxAnyRef{..} => {
-                panic!("NYI");
+            Uxpr::ExactFallibleUnboxAnyRef{value, ..} => {
+                self.flatten_expr(value);
             }
+            Uxpr::DowncastFailed => { }
             Uxpr::Call{actuals, ..} => {
                 for actual in &mut *actuals {
                     self.flatten_expr(actual);
@@ -199,14 +190,13 @@ impl Flatten
                 }
             }
             Uxpr::Deref{base, field} => {
-                // Rewrite this as StructGet
+                // Rewrite this as GetField
                 // The node carries the name of the structure
-                // The node probably needs to carry the field index, or
-                // things become too complicated in the waster.
                 panic!("NYI");
             }
             Uxpr::New{values, ..} => {
-                // Desugaring already ordered the initializers.
+                // Desugaring has already ordered the initializers, the field
+                // names are irrelevant at this point.
                 values.into_iter().for_each(|(_,e)| self.flatten_expr(e));
             }
             Uxpr::Assign{lhs, rhs} => {
@@ -227,7 +217,7 @@ impl Flatten
                         }
                     }
                     LValue::Field{base,field} => {
-                        // Rewrite this as structset
+                        // Rewrite this as SetField
                         panic!("NYI");
                     }
                 }

@@ -28,10 +28,18 @@ impl<'a> Waster<'a>
             match item {
                 ModItem::Var(v)    => { self.wast_global(&v); }
                 ModItem::Fn(f)     => { self.wast_function(&f); }
-                ModItem::Struct(s) => { panic!("NYI"); }
+                ModItem::Struct(s) => { self.wast_struct(&s); }
             }
         }
         self.emit(")\n");
+    }
+
+    fn wast_struct(&mut self, s:&StructDef) {
+        self.emit(&format!("(type ${} (struct", &s.name));
+        (&s.fields).into_iter().for_each(|(name,ty)| {
+            self.emit(&format!("\n(field ${}.{} {})", &s.name, &name, render_type(Some(*ty))));
+        });
+        self.emit("))\n");
     }
 
     fn wast_global(&mut self, g:&GlobalDef) {
@@ -156,7 +164,16 @@ impl<'a> Waster<'a>
                 self.wast_expr(&opd);
                 self.emit(")");
             }
-            Uxpr::ExactFallibleUnboxAnyRef{..} => {
+            Uxpr::ExactFallibleUnboxAnyRef{to, value} => {
+                if let Type::CookedRef(ty_name) = to {
+                    self.emit(&format!("(struct.narrow anyref (ref ${}) ", &ty_name));
+                    self.wast_expr(&value);
+                    self.emit(")");
+                } else {
+                    unreachable!();
+                }
+            }
+            Uxpr::DowncastFailed => {
                 panic!("NYI");
             }
             Uxpr::Call{name, actuals} => {
@@ -200,14 +217,33 @@ impl<'a> Waster<'a>
                 self.wast_expr(&value);
                 self.emit(")");
             }
-            Uxpr::GetField{..} => {
-                panic!("NYI");
+            Uxpr::GetField{base, field} => {
+                if let Some(Type::CookedRef(ty_name)) = base.ty {
+                    self.emit(&format!("(struct.get ${} ${}.${} ", &ty_name, &ty_name, field));
+                    self.wast_expr(base);
+                    self.emit(")");
+                } else {
+                    unreachable!();
+                }
             }
-            Uxpr::SetField{..} => {
-                panic!("NYI");
+            Uxpr::SetField{base, field, value} => {
+                if let Some(Type::CookedRef(ty_name)) = base.ty {
+                    self.emit(&format!("(struct.set ${} ${}.${} ", &ty_name, &ty_name, field));
+                    self.wast_expr(base);
+                    self.emit(" ");
+                    self.wast_expr(value);
+                    self.emit(")");
+                } else {
+                    unreachable!();
+                }
             }
             Uxpr::New{ty_name, values} => {
-                panic!("NYI");
+                self.emit(&format!("(struct.new ${}", ty_name));
+                values.into_iter().for_each(|(_,value)| {
+                    self.emit(" ");
+                    self.wast_expr(&value);
+                });
+                self.emit(")");
             }
             Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block(_) | Uxpr::Typeop{..} |
             Uxpr::Assign{..} | Uxpr::Id(_) | Uxpr::Deref{..} =>

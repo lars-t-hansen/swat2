@@ -152,14 +152,14 @@ impl Desugarer
                         swap(rhs, &mut new_rhs);
 
                         let mut block_items = vec![];
-                        block_items.push(BlockItem::Let(Box::new(LetDefn { name: tmp_x, ty: ty.unwrap(), init: new_lhs })));
-                        block_items.push(BlockItem::Let(Box::new(LetDefn { name: tmp_y, ty: ty.unwrap(), init: new_rhs })));
+                        block_items.push(BlockItem::Let(box_let(&tmp_x, ty.unwrap(), new_lhs)));
+                        block_items.push(BlockItem::Let(box_let(&tmp_y, ty.unwrap(), new_rhs)));
                         let div = box_binop(ty, Binop::Div, box_id(ty, &tmp_x), box_id(ty, &tmp_y));
                         let trunc = box_unop(ty, Unop::Trunc, div);
                         let mul = box_binop(ty, Binop::Mul, trunc, box_id(ty, &tmp_y));
                         let diff = box_binop(ty, Binop::Sub, box_id(ty, &tmp_x), mul);
                         block_items.push(BlockItem::Expr(diff));
-                        replacement_expr = Some(Box::new(Expr { ty, u:  Uxpr::Block(Block{ ty, items: block_items}) }));
+                        replacement_expr = Some(box_block_expr(ty, block_items));
                     }
                     _ => {
                         self.desugar_expr(lhs);
@@ -207,8 +207,10 @@ impl Desugarer
                     (_, Type::AnyRef) => {
                         match op {
                             Typeop::Is => {
-                                // rewrite as (begin lhs true)
-                                panic!("NYI");
+                                replacement_expr = Some(
+                                    box_block_expr(Some(Type::I32),
+                                                   vec![BlockItem::Expr(new_lhs),
+                                                        BlockItem::Expr(box_intlit(1, Type::I32))]));
                             }
                             Typeop::As => {
                                 replacement_expr = Some(new_lhs);
@@ -216,20 +218,22 @@ impl Desugarer
                         }
                     }
                     (Some(Type::AnyRef), Type::CookedRef(_)) => {
-                        let narrow = Box::new(Expr { ty: expr.ty,
-                                                     u:  Uxpr::ExactFallibleUnboxAnyRef{ to: rhs,
-                                                                                         value: new_lhs }});
+                        let narrow = box_downcast(expr.ty, rhs, new_lhs);
                         match op {
                             Typeop::Is => {
                                 replacement_expr = Some(box_unop(Some(Type::I32), Unop::IsNull, narrow));
                             }
                             Typeop::As => {
-                                // rewrite as
-                                // { let tmp = (struct.narrow anyref (ref $S) lhs);
-                                //   if (ref.is_null tmp) { trap() } else { }
-                                //   tmp
-                                // }
-                                panic!("NYI");
+                                let tmp_name = Id::gensym("tmp");
+                                let test = box_unop(Some(Type::I32), Unop::IsNull, box_id(expr.ty, &tmp_name));
+                                let consequent = box_block(vec![box_downcast_failed()]);
+                                let alternate = box_block(vec![]);
+                                let guard = box_if(test, consequent, alternate);
+                                replacement_expr = Some(
+                                    box_block_expr(expr.ty,
+                                                   vec![BlockItem::Let(box_let(&tmp_name, expr.ty.unwrap(), narrow)),
+                                                        BlockItem::Expr(guard),
+                                                        BlockItem::Expr(box_id(expr.ty, &tmp_name))]));
                             }
                         }
                     }
@@ -284,10 +288,8 @@ impl Desugarer
                     self.desugar_expr(&mut value);
                     let tmp_name = Id::gensym("tmp");
                     let field_ty = value.ty.unwrap();
-                    block_items.push(BlockItem::Let(Box::new(LetDefn { name: tmp_name,
-                                                                       ty:   field_ty,
-                                                                       init: value })));
-                    initializers.push((field, Box::new(Expr { ty: Some(field_ty), u: Uxpr::Id(tmp_name) })))
+                    block_items.push(BlockItem::Let(box_let(&tmp_name, field_ty, value)));
+                    initializers.push((field, box_id(Some(field_ty), &tmp_name)));
                 }
 
                 let mut indices = HashMap::new();
@@ -310,12 +312,8 @@ impl Desugarer
                     else { Ordering::Equal }
                 });
 
-                block_items.push(BlockItem::Expr(Box::new(Expr { ty: expr.ty,
-                                                                 u:  Uxpr::New{ ty_name: *ty_name,
-                                                                                values:  initializers } })));
-                replacement_expr = Some(Box::new(Expr { ty: expr.ty,
-                                                        u:  Uxpr::Block(Block{ ty:    expr.ty,
-                                                                               items: block_items }) }));
+                block_items.push(BlockItem::Expr(box_new(expr.ty, ty_name, initializers)));
+                replacement_expr = Some(box_block_expr(expr.ty, block_items));
             }
             Uxpr::Assign{lhs, rhs} => {
                 self.desugar_expr(rhs);
@@ -326,7 +324,8 @@ impl Desugarer
                     }
                 }
             }
-            Uxpr::Block(_) | Uxpr::Sequence{..} | Uxpr::Drop(_) | Uxpr::ExactFallibleUnboxAnyRef{..} |
+            Uxpr::Block(_) | Uxpr::Sequence{..} | Uxpr::Drop(_) |
+            Uxpr::ExactFallibleUnboxAnyRef{..} | Uxpr::DowncastFailed |
             Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
             Uxpr::GetField{..} | Uxpr::SetField{..} => {
                 unreachable!();
