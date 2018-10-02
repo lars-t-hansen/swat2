@@ -190,9 +190,12 @@ impl Flatten
                 }
             }
             Uxpr::Deref{base, field} => {
-                // Rewrite this as GetField
-                // The node carries the name of the structure
-                panic!("NYI");
+                self.flatten_expr(base);
+                let mut new_base = box_void();
+                swap(base, &mut new_base);
+                replacement_expr = Some(
+                    Box::new(Expr{ ty: expr.ty,
+                                   u:  Uxpr::GetField{ base: new_base, field: *field } }));
             }
             Uxpr::New{values, ..} => {
                 // Desugaring has already ordered the initializers, the field
@@ -201,11 +204,10 @@ impl Flatten
             }
             Uxpr::Assign{lhs, rhs} => {
                 self.flatten_expr(rhs);
+                let mut new_rhs = box_void();
+                swap(rhs, &mut new_rhs);
                 match lhs {
                     LValue::Id{name} => {
-                        let mut new_rhs = box_void();
-                        swap(rhs, &mut new_rhs);
-
                         match self.env.lookup(&name) {
                             Some(Binding::Local(new_name)) => {
                                 replacement_expr = Some(box_set_local(&new_name, new_rhs));
@@ -216,9 +218,13 @@ impl Flatten
                             _ => { unreachable!() }
                         }
                     }
-                    LValue::Field{base,field} => {
-                        // Rewrite this as SetField
-                        panic!("NYI");
+                    LValue::Field{base, field} => {
+                        self.flatten_expr(base);
+                        let mut new_base = box_void();
+                        swap(base, &mut new_base);
+                        replacement_expr = Some(
+                            Box::new(Expr{ ty: expr.ty,
+                                           u:  Uxpr::SetField{ base: new_base, field: *field, value: new_rhs } }));
                     }
                 }
             }

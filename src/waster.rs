@@ -174,7 +174,7 @@ impl<'a> Waster<'a>
                 }
             }
             Uxpr::DowncastFailed => {
-                panic!("NYI");
+                self.emit("(unreachable)");
             }
             Uxpr::Call{name, actuals} => {
                 self.emit(&format!("(call ${} ", &name));
@@ -193,7 +193,9 @@ impl<'a> Waster<'a>
                 }
             }
             Uxpr::NullLit => {
-                // FIXME: Not adequate for structs
+                // FIXME: Not adequate for structs.  We may be able to fix this semi-locally by
+                // passing down some idea of "the type we need" and ignoring that everywhere except
+                // here, but it's hacky and plays poorly with some circumstances.
                 self.emit("(ref.null anyref)");
             }
             Uxpr::Drop{value} => {

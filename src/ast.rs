@@ -247,12 +247,11 @@ pub struct Expr {
 
 #[derive(Debug)]
 pub enum Uxpr {
-    // `Block` is introduced by desugaring (for now).
     // `While` and `Loop` and `TypeOp` are removed by desugaring.
-    // `Id`, `Assign`, and `Block` are removed by flattening.
+    // `Id`, `Assign`, `Block`, and `Deref` are removed by flattening.
     Void,
-    NumLit{value: Number},
     NullLit,
+    NumLit{value: Number},
     Id{name: Id},
     Deref{base: Box<Expr>, field: Id},
     New{ty_name: Id, values: Vec<(Id,Box<Expr>)>}, // "initializers" would be better than "values"
@@ -260,7 +259,6 @@ pub enum Uxpr {
     While{test: Box<Expr>, body: Box<Block>},
     Loop{break_label: Id, body: Box<Block>},
     Break{label: Id},
-    Block{block: Block},
     Binop{op: Binop, lhs: Box<Expr>, rhs: Box<Expr>},
     Unop{op: Unop, opd: Box<Expr>},
     Typeop{op: Typeop, lhs: Box<Expr>, rhs: Type},
@@ -268,6 +266,7 @@ pub enum Uxpr {
     Call{name: Id, actuals: Vec<Box<Expr>>},
 
     // Introduced by desugaring.
+    Block{block: Block},
     Iterate{break_label: Id, continue_label: Id, body: Box<Block>},
     ExactFallibleUnboxAnyRef{to: Type, value: Box<Expr>},
     DowncastFailed,
@@ -405,7 +404,7 @@ pub fn match_parameters(formals:&Vec<Type>, actuals:&Vec<Box<Expr>>) -> bool {
         return false;
     }
     for i in 0..actuals.len() {
-        if !is_same_type(Some(formals[i]), actuals[i].ty) {
+        if !is_assignable_type(Some(formals[i]), actuals[i].ty) {
             return false;
         }
     }
@@ -426,6 +425,64 @@ pub fn is_same_type(t1:Option<Type>, t2:Option<Type>) -> bool {
         (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
         (Some(_), Some(Type::RawRef(_))) => unreachable!(),
         (_, _) => false
+    }
+}
+
+// t2 assignable to t1 with implicit upcast (not symmetric)
+
+pub fn is_assignable_type(t1:Option<Type>, t2:Option<Type>) -> bool {
+    match (t1, t2) {
+        (None, None) => true,
+        (None, _)    => false,
+        (_, None)    => false,
+        (Some(Type::I32), Some(Type::I32)) => true,
+        (Some(Type::I64), Some(Type::I64)) => true,
+        (Some(Type::F32), Some(Type::F32)) => true,
+        (Some(Type::F64), Some(Type::F64)) => true,
+        (Some(Type::AnyRef), Some(Type::AnyRef)) => true,
+        (Some(Type::AnyRef), Some(Type::CookedRef(_))) => true,
+        (Some(Type::CookedRef(name1)), Some(Type::CookedRef(name2))) => name1 == name2,
+        (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
+        (Some(_), Some(Type::RawRef(_))) => unreachable!(),
+        (_, _) => false
+    }
+}
+
+// t1 and t2 are compatible (symmetric)
+
+pub fn is_compatible_type(t1:Option<Type>, t2:Option<Type>) -> bool {
+    match (t1, t2) {
+        (None, None) => true,
+        (None, _)    => false,
+        (_, None)    => false,
+        (Some(Type::I32), Some(Type::I32)) => true,
+        (Some(Type::I64), Some(Type::I64)) => true,
+        (Some(Type::F32), Some(Type::F32)) => true,
+        (Some(Type::F64), Some(Type::F64)) => true,
+        (Some(Type::AnyRef), Some(Type::AnyRef)) => true,
+        (Some(Type::AnyRef), Some(Type::CookedRef(_))) => true,
+        (Some(Type::CookedRef(_)), Some(Type::AnyRef)) => true,
+        (Some(Type::CookedRef(name1)), Some(Type::CookedRef(name2))) => name1 == name2,
+        (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
+        (Some(_), Some(Type::RawRef(_))) => unreachable!(),
+        (_, _) => false
+    }
+}
+
+pub fn merge_compatible_types(t1:Option<Type>, t2:Option<Type>) -> Option<Type> {
+    match (t1, t2) {
+        (None, None) => t1,
+        (Some(Type::I32), Some(Type::I32)) => t1,
+        (Some(Type::I64), Some(Type::I64)) => t1,
+        (Some(Type::F32), Some(Type::F32)) => t1,
+        (Some(Type::F64), Some(Type::F64)) => t1,
+        (Some(Type::AnyRef), Some(Type::AnyRef)) => t1,
+        (Some(Type::AnyRef), Some(Type::CookedRef(_))) => t1,
+        (Some(Type::CookedRef(_)), Some(Type::AnyRef)) => t2,
+        (Some(Type::CookedRef(_)), Some(Type::CookedRef(_))) => t1,
+        (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
+        (Some(_), Some(Type::RawRef(_))) => unreachable!(),
+        (_, _) => unreachable!()
     }
 }
 

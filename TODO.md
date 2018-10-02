@@ -7,8 +7,9 @@ In progress: structs!
     - write        s.field = ...
     - predicate    x is S
     - downcast     x as S
- - done with parsing, type checking, mostly desugaring, mostly wasting
- - more work in flattening
+
+ - test cases!
+
  - wasting of 'null' doesn't really work without nullref; how can we
    propagate this value in the compiler and where do we do it and
    how do we rewrite the tree?
@@ -34,8 +35,6 @@ In progress: structs!
        on types are few or distinct.  Only == and != overlap with
        other types.  Well, and assignment, parameter passing,
        value returning, possibly more :-/
- - a little work in desugaring which will introduce a new ast node for trap
- - a little more work in wasting to handle new ast node
 
 
 // Coding style for enumerations:

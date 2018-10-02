@@ -109,7 +109,7 @@ impl Check
 
         if !g.imported {
             self.check_const_expr(&mut g.init);
-            if !is_same_type(Some(g.ty), g.init.ty) {
+            if !is_assignable_type(Some(g.ty), g.init.ty) {
                 panic!("Init expression type mismatch");
             }
         }
@@ -133,7 +133,7 @@ impl Check
 
         if !f.imported {
             self.check_block(&mut f.body);
-            if !is_same_type(f.retn, f.body.ty) {
+            if !is_assignable_type(f.retn, f.body.ty) {
                 panic!("Return type / body type mismatch");
             }
         }
@@ -150,7 +150,7 @@ impl Check
                 BlockItem::Let(l) => {
                     self.check_type(&mut l.ty);
                     self.check_expr(&mut l.init);
-                    if !is_same_type(l.init.ty, Some(l.ty)) {
+                    if !is_assignable_type(Some(l.ty), l.init.ty) {
                         panic!("Initializer does not have same type as variable {}", &l.name);
                     }
                     self.env.locals.add_local(&l.name, l.ty);
@@ -193,10 +193,10 @@ impl Check
                 if !is_same_type(test.ty, Some(Type::I32)) {
                     panic!("Test type must be i32");
                 }
-                if !is_same_type(consequent.ty, alternate.ty) {
+                if !is_compatible_type(consequent.ty, alternate.ty) {
                     panic!("Arms of 'if' must have same type");
                 }
-                expr.ty = consequent.ty;
+                expr.ty = merge_compatible_types(consequent.ty, alternate.ty);
             }
             Uxpr::While{test, body} => {
                 self.check_expr(test);
@@ -223,7 +223,7 @@ impl Check
             Uxpr::Binop{op, lhs, rhs} => {
                 self.check_expr(lhs);
                 self.check_expr(rhs);
-                if !is_same_type(lhs.ty, rhs.ty) {
+                if !is_compatible_type(lhs.ty, rhs.ty) {
                     panic!("Binop requires equal types {} {}", fmt_type(lhs.ty), fmt_type(rhs.ty));
                 }
                 match op {
@@ -260,7 +260,7 @@ impl Check
                         expr.ty = Some(Type::I32);
                     }
                     _ => {
-                        expr.ty = lhs.ty;
+                        expr.ty = merge_compatible_types(lhs.ty, rhs.ty);
                     }
                 }
             }
@@ -393,7 +393,7 @@ impl Check
                         // in the struct.
                         for (field, value) in values {
                             if let Some((_, ty)) = fields.into_iter().find(|(n,_)| n == field) {
-                                if !is_same_type(value.ty, Some(*ty)) {
+                                if !is_assignable_type(Some(*ty), value.ty) {
                                     panic!("Initializer expression type does not match field type");
                                 }
                             } else {
@@ -419,14 +419,14 @@ impl Check
                             _ => 
                                 panic!("Not a reference to a variable: {}", &name)
                         };
-                        if !is_same_type(Some(t), rhs.ty) {
+                        if !is_assignable_type(Some(t), rhs.ty) {
                             panic!("Type of value being stored does not match variable");
                         }
                     }
                     LValue::Field{base,field} => {
                         self.check_expr(base);
                         let ty = self.check_struct_ref(base, field);
-                        if !is_same_type(Some(ty), rhs.ty) {
+                        if !is_assignable_type(Some(ty), rhs.ty) {
                             panic!("Type of value being stored does not match field");
                         }
                     }
