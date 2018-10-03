@@ -169,9 +169,10 @@ impl Check
 
     fn check_const_expr(&mut self, e:&mut Expr) {
         match e.u {
-            Uxpr::NumLit{..} => { /* Carries correct type */ }
-            Uxpr::Void       => { /* Carries correct type */ }
-            _                => { panic!("Not a constant expression"); }
+            Uxpr::NumLit{..}  => { /* Carries correct type */ }
+            Uxpr::NullLit{..} => { /* Carries correct type */ }
+            Uxpr::Void        => { /* Carries correct type */ }
+            _                 => { panic!("Not a constant expression"); }
         }
     }
 
