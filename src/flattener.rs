@@ -134,7 +134,7 @@ impl Flatten
                 replacement_expr = Some(box_empty_sequence());
             }
             Uxpr::NumLit{..} => { }
-            Uxpr::NullLit => { }
+            Uxpr::NullLit{..} => { }
             Uxpr::If{test, consequent, alternate} => {
                 self.flatten_expr(test);
                 self.flatten_block(consequent);

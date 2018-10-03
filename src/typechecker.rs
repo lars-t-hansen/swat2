@@ -183,8 +183,8 @@ impl Check
             Uxpr::NumLit{..} => {
                 assert!(is_num_type(expr.ty));
             }
-            Uxpr::NullLit => {
-                assert!(is_value_type(expr.ty));
+            Uxpr::NullLit{ty} => {
+                assert!(is_ref_or_anyref_type(Some(*ty)));
             }
             Uxpr::If{test, consequent, alternate} => {
                 self.check_expr(test);

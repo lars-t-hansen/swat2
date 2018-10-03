@@ -250,7 +250,7 @@ pub enum Uxpr {
     // `While` and `Loop` and `TypeOp` are removed by desugaring.
     // `Id`, `Assign`, `Block`, and `Deref` are removed by flattening.
     Void,
-    NullLit,
+    NullLit{ty: Type},
     NumLit{value: Number},
     Id{name: Id},
     Deref{base: Box<Expr>, field: Id},

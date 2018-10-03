@@ -34,7 +34,14 @@ In progress: structs!
        other type comparisons?  Possibly, because the operators
        on types are few or distinct.  Only == and != overlap with
        other types.  Well, and assignment, parameter passing,
-       value returning, possibly more :-/
+       value returning, possibly more :-/  Consider if E { if E2 { ... { if En { null } else { null } } ... } else { ... } } else { ... }
+       which is not shallow in this sense.
+
+       merge(T, NullRef) => T
+       merge(NullRef, T) => T
+
+       Really for pointers there's an implied upcast / widening that
+       the type checker leaves implicit, but should it?
 
 
 // Coding style for enumerations:

@@ -92,7 +92,7 @@ impl Desugarer
         match &mut expr.u {
             Uxpr::Void => { }
             Uxpr::NumLit{..} => { }
-            Uxpr::NullLit => { }
+            Uxpr::NullLit{..} => { }
             Uxpr::If{test, consequent, alternate} => {
                 self.desugar_expr(test);
                 self.desugar_block(consequent);

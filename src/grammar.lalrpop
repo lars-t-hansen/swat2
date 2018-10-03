@@ -215,7 +215,7 @@ PrimaryExpr: Box<Expr> = {
         e
     },
     "null" => {
-        Box::new(Expr{ty: Some(Type::AnyRef), u:Uxpr::NullLit})
+        Box::new(Expr{ty: Some(Type::AnyRef), u:Uxpr::NullLit{ty:Type::AnyRef}})
     },
     <name:Id> <actuals:Actuals?> => {
         if let Some(actuals) = actuals {

@@ -192,11 +192,8 @@ impl<'a> Waster<'a>
                     Number::F64(k) => { self.emit(&format!("(f64.const {})", k)) }
                 }
             }
-            Uxpr::NullLit => {
-                // FIXME: Not adequate for structs.  We may be able to fix this semi-locally by
-                // passing down some idea of "the type we need" and ignoring that everywhere except
-                // here, but it's hacky and plays poorly with some circumstances.
-                self.emit("(ref.null anyref)");
+            Uxpr::NullLit{ty} => {
+                self.emit(&format!("(ref.null {})", render_type(Some(*ty))));
             }
             Uxpr::Drop{value} => {
                 self.emit("(drop ");
