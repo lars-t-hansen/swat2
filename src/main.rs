@@ -8,9 +8,11 @@ mod ast;
 mod desugarer;
 mod environment;
 mod flattener;
-#[cfg(test)] mod integration_tests;
 mod typechecker;
 mod waster;
+
+#[cfg(test)]
+mod integration_tests;
 
 use std::env;
 use std::fs::File;
@@ -18,7 +20,7 @@ use std::io::{Read, Write};
 
 fn main()
 {
-    let args : Vec<String> = env::args().collect();
+    let args: Vec<String> = env::args().collect();
     let mut numfiles = 0;
     for infilename in args[1..].iter() {
         if infilename.ends_with(".swat") {
@@ -65,10 +67,12 @@ fn compile_file(infilename:&str)
 }
 
 fn read_text_file(infilename:&str) -> String {
-    let mut source = String::new();
     let mut infile = File::open(&infilename)
         .expect(&format!("{}: file not found", &infilename));
+
+    let mut source = String::new();
     infile.read_to_string(&mut source)
         .expect(&format!("{}: failed to read", &infilename));
+
     source
 }
