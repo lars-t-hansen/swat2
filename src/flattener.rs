@@ -207,7 +207,7 @@ impl Flatten
                 let mut new_rhs = box_void();
                 swap(rhs, &mut new_rhs);
                 match lhs {
-                    LValue::Id{name} => {
+                    LValue::Id{name, ..} => {
                         match self.env.lookup(*name) {
                             Some(Binding::Local(new_name)) => {
                                 replacement_expr = Some(box_set_local(new_name, new_rhs));
@@ -218,7 +218,7 @@ impl Flatten
                             _ => { unreachable!() }
                         }
                     }
-                    LValue::Field{base, field} => {
+                    LValue::Field{base, field, ..} => {
                         self.flatten_expr(base);
                         let mut new_base = box_void();
                         swap(base, &mut new_base);

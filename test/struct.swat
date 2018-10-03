@@ -4,10 +4,28 @@ module Structs
         i: i32,
         j: f64
     }
-    fn testi(s:S) -> i32 {
+    fn test_i(s:S) -> i32 {
         s.i
     }
-    fn testj(s:S) -> f64 {
+    fn test_j(s:S) -> f64 {
         s.j
+    }
+    fn test_set_i(s:S, x:i32) {
+        s.i = x;
+    }
+    fn test_set_j(s:S, x:f64) {
+        s.j = x;
+    }
+    fn test_as(p:anyref) -> S {
+        p as S
+    }
+    fn test_is(p:anyref) -> i32 {
+        p is S
+    }
+    fn test_upcast(s:S) -> anyref {
+        s
+    }
+    fn test_null(x:i32) -> S {
+        null
     }
 }

@@ -106,8 +106,8 @@ AssignExpr: Box<Expr> = {
 }
 
 LValue: LValue = {
-    <name:Id> => LValue::Id{name},
-    <base:PrimaryExpr> "." <field:Id> => LValue::Field{base, field}
+    <name:Id> => LValue::Id{ty:None, name},
+    <base:PrimaryExpr> "." <field:Id> => LValue::Field{ty:None, base, field}
 }
 
 RelationalExpr: Box<Expr> = {
@@ -181,13 +181,14 @@ UnaryExpr: Box<Expr> = {
     "!" <e:UnaryExpr> => box_unop(None, Unop::Not, e),
     "~" <e:UnaryExpr> => box_unop(None, Unop::BitNot, e),
     "-" <e:UnaryExpr> => box_unop(None, Unop::Neg, e),
-    PrimaryExpr
+    TypeExpr
 }
 
 TypeExpr: Box<Expr> = {
-    <lhs:TypeExpr> <op:Typeop> <rhs:Type> => {
+    <lhs:PrimaryExpr> <op:Typeop> <rhs:Type> => {
         box_typeop(None, op, lhs, rhs)
-    }
+    },
+    PrimaryExpr
 }
 
 Typeop: Typeop = {
@@ -215,7 +216,7 @@ PrimaryExpr: Box<Expr> = {
         e
     },
     "null" => {
-        Box::new(Expr{ty: Some(Type::AnyRef), u:Uxpr::NullLit{ty:Type::AnyRef}})
+        Box::new(Expr{ty: Some(Type::AnyRef), u:Uxpr::NullLit{ty:Type::NullRef}})
     },
     <name:Id> <actuals:Actuals?> => {
         if let Some(actuals) = actuals {

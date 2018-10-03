@@ -155,10 +155,13 @@ pub enum Type {
     // the type checker, and type comparison algorithms will abort on
     // encountering it.
     RawRef(Id),
+    // NullRef comes from the parser and is attached to NullLit nodes;
+    // it is eliminated by the desugarer.
+    NullRef,
     // CookedRef is produced by the type checker, Id is known to reference a
     // global type defn that is not shadowed by a local binding, and type
     // comparison need not consider environments.
-    CookedRef(Id)
+    CookedRef(Id),
 }
 
 pub fn fmt_type(t:Option<Type>) -> String
@@ -173,6 +176,7 @@ pub fn fmt_type(t:Option<Type>) -> String
                 Type::F64 => "F64".to_string(),
                 Type::AnyRef => "anyref".to_string(),
                 Type::RawRef(n) => format!("(rawref {})", n),
+                Type::NullRef => "nullref".to_string(),
                 Type::CookedRef(n) => format!("(ref {})", n)
             }
         }
@@ -285,10 +289,14 @@ pub enum Uxpr {
     Drop{value: Box<Expr>}
 }
 
+// LValue carries a type because in the contexts where it's used (assignments),
+// the surrounding expression is void and the type of the rhs may be a subtype
+// of the field being written to.
+
 #[derive(Debug)]
 pub enum LValue {
-    Id{name:Id},
-    Field{base: Box<Expr>, field:Id}
+    Id{ty:Option<Type>, name:Id},
+    Field{ty:Option<Type>, base: Box<Expr>, field:Id}
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -397,6 +405,12 @@ pub fn box_drop(e:Box<Expr>) -> Box<Expr> {
 }
 
 // Type utilities
+//
+// These are becoming somewhat unmanageable, we need a better system.
+//
+// Also, we should be more definite about when certain types are allowed.  For
+// example, None is only meaningful in command position and when returning from
+// a void function.  NullRef is an expressed type only, not a stored type.
 
 pub fn match_parameters(formals:&Vec<Type>, actuals:&Vec<Box<Expr>>) -> bool {
     if actuals.len() != formals.len() {
@@ -420,6 +434,7 @@ pub fn is_same_type(t1:Option<Type>, t2:Option<Type>) -> bool {
         (Some(Type::F32), Some(Type::F32)) => true,
         (Some(Type::F64), Some(Type::F64)) => true,
         (Some(Type::AnyRef), Some(Type::AnyRef)) => true,
+        (Some(Type::NullRef), Some(Type::NullRef)) => true,
         (Some(Type::CookedRef(name1)), Some(Type::CookedRef(name2))) => name1 == name2,
         (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
         (Some(_), Some(Type::RawRef(_))) => unreachable!(),
@@ -439,8 +454,10 @@ pub fn is_assignable_type(t1:Option<Type>, t2:Option<Type>) -> bool {
         (Some(Type::F32), Some(Type::F32)) => true,
         (Some(Type::F64), Some(Type::F64)) => true,
         (Some(Type::AnyRef), Some(Type::AnyRef)) => true,
+        (Some(Type::AnyRef), Some(Type::NullRef)) => true,
         (Some(Type::AnyRef), Some(Type::CookedRef(_))) => true,
         (Some(Type::CookedRef(name1)), Some(Type::CookedRef(name2))) => name1 == name2,
+        (Some(Type::CookedRef(_)), Some(Type::NullRef)) => true,
         (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
         (Some(_), Some(Type::RawRef(_))) => unreachable!(),
         (_, _) => false
@@ -458,10 +475,19 @@ pub fn is_compatible_type(t1:Option<Type>, t2:Option<Type>) -> bool {
         (Some(Type::I64), Some(Type::I64)) => true,
         (Some(Type::F32), Some(Type::F32)) => true,
         (Some(Type::F64), Some(Type::F64)) => true,
+
         (Some(Type::AnyRef), Some(Type::AnyRef)) => true,
+        (Some(Type::AnyRef), Some(Type::NullRef)) => true,
         (Some(Type::AnyRef), Some(Type::CookedRef(_))) => true,
+
+        (Some(Type::NullRef), Some(Type::AnyRef)) => true,
+        (Some(Type::NullRef), Some(Type::NullRef)) => true,
+        (Some(Type::NullRef), Some(Type::CookedRef(_))) => true,
+
         (Some(Type::CookedRef(_)), Some(Type::AnyRef)) => true,
+        (Some(Type::CookedRef(_)), Some(Type::NullRef)) => true,
         (Some(Type::CookedRef(name1)), Some(Type::CookedRef(name2))) => name1 == name2,
+
         (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
         (Some(_), Some(Type::RawRef(_))) => unreachable!(),
         (_, _) => false
@@ -475,10 +501,19 @@ pub fn merge_compatible_types(t1:Option<Type>, t2:Option<Type>) -> Option<Type> 
         (Some(Type::I64), Some(Type::I64)) => t1,
         (Some(Type::F32), Some(Type::F32)) => t1,
         (Some(Type::F64), Some(Type::F64)) => t1,
+
         (Some(Type::AnyRef), Some(Type::AnyRef)) => t1,
+        (Some(Type::AnyRef), Some(Type::NullRef)) => t1,
         (Some(Type::AnyRef), Some(Type::CookedRef(_))) => t1,
+
+        (Some(Type::NullRef), Some(Type::AnyRef)) => t2,
+        (Some(Type::NullRef), Some(Type::NullRef)) => t1,
+        (Some(Type::NullRef), Some(Type::CookedRef(_))) => t2,
+
         (Some(Type::CookedRef(_)), Some(Type::AnyRef)) => t2,
+        (Some(Type::CookedRef(_)), Some(Type::NullRef)) => t1,
         (Some(Type::CookedRef(_)), Some(Type::CookedRef(_))) => t1,
+
         (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
         (Some(_), Some(Type::RawRef(_))) => unreachable!(),
         (_, _) => unreachable!()
@@ -491,6 +526,7 @@ pub fn is_int_type(t1:Option<Type>) -> bool {
         Some(Type::I32) | Some(Type::I64) => true,
         Some(Type::F32) | Some(Type::F64) => false,
         Some(Type::AnyRef) => false,
+        Some(Type::NullRef) => false,
         Some(Type::CookedRef(_)) => false,
         Some(Type::RawRef(_)) => unreachable!()
     }
@@ -503,6 +539,7 @@ pub fn is_i32_type(t1:Option<Type>) -> bool {
         Some(Type::I64) => false,
         Some(Type::F32) | Some(Type::F64) => false,
         Some(Type::AnyRef) => false,
+        Some(Type::NullRef) => false,
         Some(Type::CookedRef(_)) => false,
         Some(Type::RawRef(_)) => unreachable!()
     }
@@ -514,6 +551,7 @@ pub fn is_float_type(t1:Option<Type>) -> bool {
         Some(Type::I32) | Some(Type::I64) => false,
         Some(Type::F32) | Some(Type::F64) => true,
         Some(Type::AnyRef) => false,
+        Some(Type::NullRef) => false,
         Some(Type::CookedRef(_)) => false,
         Some(Type::RawRef(_)) => unreachable!()
     }
@@ -533,6 +571,7 @@ pub fn is_ref_or_anyref_type(t1:Option<Type>) -> bool {
         Some(Type::I32) | Some(Type::I64) => false,
         Some(Type::F32) | Some(Type::F64) => false,
         Some(Type::AnyRef) => true,
+        Some(Type::NullRef) => true,
         Some(Type::CookedRef(_)) => true,
         Some(Type::RawRef(_)) => unreachable!()
     }
@@ -544,6 +583,7 @@ pub fn is_ref_type(t1:Option<Type>) -> bool {
         Some(Type::I32) | Some(Type::I64) => false,
         Some(Type::F32) | Some(Type::F64) => false,
         Some(Type::AnyRef) => false,
+        Some(Type::NullRef) => false,
         Some(Type::CookedRef(_)) => true,
         Some(Type::RawRef(_)) => unreachable!()
     }

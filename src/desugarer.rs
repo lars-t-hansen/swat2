@@ -15,6 +15,7 @@
 // - calls to intrinsics are rewritten as intrinsic ops (some of them have
 //   direct mappings, some require expansion)
 // - `new` is rewritten with initializers in struct declaration order
+// - `null` is rewritten to carry the type that the null pointer needs to have
 //
 // The desugarer can insert new blocks and variable bindings, it just can't leave behind new
 // instances of any of the forms it is trying to remove.
@@ -59,44 +60,54 @@ impl Desugarer
     }
 
     fn desugar_global(&mut self, g:&mut GlobalDef) {
-        self.desugar_expr(&mut g.init);
+        self.desugar_expr(&mut g.init, Some(g.ty));
     }
 
     fn desugar_function(&mut self, f:&mut FunctionDef) {
         if !f.imported {
             self.env.locals.push_rib();
             (&f.formals).into_iter().for_each(|(name,ty)| self.env.locals.add_param(*name, *ty));
-            self.desugar_block(&mut f.body);
+            self.desugar_block(&mut f.body, f.retn);
             self.env.locals.pop_rib();
         }
     }
 
-    fn desugar_block(&mut self, b:&mut Block) {
+    fn desugar_block(&mut self, b:&mut Block, ctx_ty:Option<Type>) {
         self.env.locals.push_rib();
         for item in &mut b.items {
             match item {
                 BlockItem::Let(l) => {
-                    self.desugar_expr(&mut l.init);
-                    self.env.locals.add_local(l.name, l.ty);
+                    let ty = l.ty;
+                    self.desugar_expr(&mut l.init, Some(ty));
+                    self.env.locals.add_local(l.name, ty);
                 }
                 BlockItem::Expr(e) => {
-                    self.desugar_expr(e);
+                    // Not actually right to pass ctx_ty here except for the last expr, but not
+                    // currently harmful.
+                    self.desugar_expr(e, ctx_ty);
                 }
             }
         }
         self.env.locals.pop_rib();
     }
 
-    fn desugar_expr(&mut self, expr:&mut Expr) {
+    fn desugar_expr(&mut self, expr:&mut Expr, ctx_ty:Option<Type>) {
         let mut replacement_expr = None;
         match &mut expr.u {
             Uxpr::Void => { }
             Uxpr::NumLit{..} => { }
-            Uxpr::NullLit{..} => { }
+            Uxpr::NullLit{ty} => {
+                assert!(is_same_type(Some(*ty), Some(Type::NullRef)));
+                match ctx_ty {
+                    None => { }
+                    Some(t @ Type::CookedRef(_)) => { *ty = t; }
+                    _ => { unreachable!(); }
+                }
+            }
             Uxpr::If{test, consequent, alternate} => {
-                self.desugar_expr(test);
-                self.desugar_block(consequent);
-                self.desugar_block(alternate);
+                self.desugar_expr(test, Some(Type::I32));
+                self.desugar_block(consequent, expr.ty);
+                self.desugar_block(alternate, expr.ty);
             }
             Uxpr::While{test, body} => {
                 let mut new_body = box_block(vec![]);
@@ -113,7 +124,7 @@ impl Desugarer
 
                 new_body.items.insert(0, BlockItem::Expr(cond_break));
                 let mut new_expr = box_iterate(break_label, continue_label, new_body);
-                self.desugar_expr(&mut new_expr);
+                self.desugar_expr(&mut new_expr, expr.ty);
                 replacement_expr = Some(new_expr);
             }
             Uxpr::Loop{body, break_label} => {
@@ -122,16 +133,18 @@ impl Desugarer
 
                 let continue_label = Id::gensym("continue");
                 let mut new_expr = box_iterate(*break_label, continue_label, new_body);
-                self.desugar_expr(&mut new_expr);
+                self.desugar_expr(&mut new_expr, expr.ty);
                 replacement_expr = Some(new_expr);
             }
             Uxpr::Iterate{body, break_label, continue_label} => {
                 self.env.locals.add_label(*break_label);
                 self.env.locals.add_label(*continue_label);
-                self.desugar_block(body);
+                self.desugar_block(body, expr.ty);
             }
             Uxpr::Break{..} => { }
             Uxpr::Binop{op, lhs, rhs} => {
+                self.desugar_expr(lhs, expr.ty);
+                self.desugar_expr(rhs, expr.ty);
                 match op {
                     Binop::NotEqual if is_ref_or_anyref_type(lhs.ty)  => {
                         let mut new_lhs = box_void();
@@ -162,14 +175,11 @@ impl Desugarer
                         block_items.push(BlockItem::Expr(diff));
                         replacement_expr = Some(box_block_expr(ty, block_items));
                     }
-                    _ => {
-                        self.desugar_expr(lhs);
-                        self.desugar_expr(rhs);
-                    }
+                    _ => { }
                 }
             }
             Uxpr::Unop{op, opd} => {
-                self.desugar_expr(opd);
+                self.desugar_expr(opd, expr.ty);
                 match op {
                     Unop::BitNot => {
                         let mut new_opd = box_void();
@@ -196,7 +206,7 @@ impl Desugarer
                 }
             }
             Uxpr::Typeop{op, lhs, rhs} => {
-                self.desugar_expr(lhs);
+                self.desugar_expr(lhs, expr.ty);
 
                 let mut new_lhs = box_void();
                 swap(lhs, &mut new_lhs);
@@ -246,7 +256,8 @@ impl Desugarer
             }
             Uxpr::Call{name, actuals} => {
                 for actual in &mut *actuals {
-                    self.desugar_expr(actual);
+                    let ty = actual.ty;
+                    self.desugar_expr(actual, ty);
                 }
                 if let Binding::Intrinsic(sigs, op) = self.env.lookup(*name).unwrap() {
                     for sig in &*sigs {
@@ -275,7 +286,7 @@ impl Desugarer
             }
             Uxpr::Id{..} => { }
             Uxpr::Deref{base, ..} => {
-                self.desugar_expr(base);
+                self.desugar_expr(base, expr.ty);
             }
             Uxpr::New{ty_name, values} => {
                 // Reorganize the values so that they are in the right order for eventual structure
@@ -286,9 +297,9 @@ impl Desugarer
                 let mut initializers = vec![];
 
                 for (field, mut value) in values.drain(0..) {
-                    self.desugar_expr(&mut value);
-                    let tmp_name = Id::gensym("tmp");
                     let field_ty = value.ty.unwrap();
+                    self.desugar_expr(&mut value, Some(field_ty));
+                    let tmp_name = Id::gensym("tmp");
                     block_items.push(BlockItem::Let(box_let(tmp_name, field_ty, value)));
                     initializers.push((field, box_id(Some(field_ty), tmp_name)));
                 }
@@ -317,11 +328,14 @@ impl Desugarer
                 replacement_expr = Some(box_block_expr(expr.ty, block_items));
             }
             Uxpr::Assign{lhs, rhs} => {
-                self.desugar_expr(rhs);
                 match lhs {
-                    LValue::Id{..} => { }
-                    LValue::Field{base, ..} => {
-                        self.desugar_expr(base);
+                    LValue::Id{ty, ..} => {
+                        self.desugar_expr(rhs, *ty);
+                    }
+                    LValue::Field{ty, base, ..} => {
+                        self.desugar_expr(rhs, *ty);
+                        let base_ty = base.ty;
+                        self.desugar_expr(base, base_ty);
                     }
                 }
             }

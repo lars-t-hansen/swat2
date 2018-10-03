@@ -186,6 +186,7 @@ impl Check
             }
             Uxpr::NullLit{ty} => {
                 assert!(is_ref_or_anyref_type(Some(*ty)));
+                expr.ty = Some(*ty);
             }
             Uxpr::If{test, consequent, alternate} => {
                 self.check_expr(test);
@@ -411,7 +412,7 @@ impl Check
             Uxpr::Assign{lhs, rhs} => {
                 self.check_expr(rhs);
                 match lhs {
-                    LValue::Id{name} => {
+                    LValue::Id{ty, name} => {
                         let t = match self.env.lookup(*name) {
                             Some(Binding::Local(t)) =>
                                 t,
@@ -423,13 +424,15 @@ impl Check
                         if !is_assignable_type(Some(t), rhs.ty) {
                             panic!("Type of value being stored does not match variable");
                         }
+                        *ty = Some(t);
                     }
-                    LValue::Field{base,field} => {
+                    LValue::Field{ty,base,field} => {
                         self.check_expr(base);
-                        let ty = self.check_struct_ref(base, *field);
-                        if !is_assignable_type(Some(ty), rhs.ty) {
+                        let base_ty = self.check_struct_ref(base, *field);
+                        if !is_assignable_type(Some(base_ty), rhs.ty) {
                             panic!("Type of value being stored does not match field");
                         }
+                        *ty = Some(base_ty);
                     }
                 }
             }
