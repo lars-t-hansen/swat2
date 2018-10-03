@@ -129,7 +129,7 @@ impl Check
         }
 
         self.env.locals.push_rib();
-        (&f.formals).into_iter().for_each(|(name,ty)| self.env.locals.add_param(name, *ty));
+        (&f.formals).into_iter().for_each(|(name,ty)| self.env.locals.add_param(*name, *ty));
 
         if !f.imported {
             self.check_block(&mut f.body);
@@ -153,7 +153,7 @@ impl Check
                     if !is_assignable_type(Some(l.ty), l.init.ty) {
                         panic!("Initializer does not have same type as variable {}", &l.name);
                     }
-                    self.env.locals.add_local(&l.name, l.ty);
+                    self.env.locals.add_local(l.name, l.ty);
                     last_type = l.init.ty;
                 }
                 BlockItem::Expr(e) => {
@@ -209,13 +209,13 @@ impl Check
             }
             Uxpr::Loop{break_label, body} => {
                 self.env.locals.push_rib();
-                self.env.locals.add_label(&break_label);
+                self.env.locals.add_label(*break_label);
                 self.check_block(body);
                 self.env.locals.pop_rib();
                 assert!(expr.ty.is_none());
             }
             Uxpr::Break{label} => {
-                match self.env.lookup(&label) {
+                match self.env.lookup(*label) {
                     Some(Binding::Label) => {}
                     _ => { panic!("Not a reference to a label in scope: {}", &label); }
                 }
@@ -320,7 +320,7 @@ impl Check
                 for actual in &mut *actuals {
                     self.check_expr(actual);
                 }
-                if let Some(b) = self.env.lookup(&name) {
+                if let Some(b) = self.env.lookup(*name) {
                     match b {
                         Binding::Function(sig) => {
                             let (formals, ret) = &*sig;
@@ -352,7 +352,7 @@ impl Check
                 }
             }
             Uxpr::Id{name} => {
-                match self.env.lookup(&name) {
+                match self.env.lookup(*name) {
                     Some(Binding::Label) => {
                         panic!("No first-class labels");
                     }
@@ -375,12 +375,12 @@ impl Check
             }
             Uxpr::Deref{base, field} => {
                 self.check_expr(base);
-                let ty = self.check_struct_ref(base, field);
+                let ty = self.check_struct_ref(base, *field);
                 expr.ty = Some(ty);
             }
             Uxpr::New{ty_name, values} => {
                 values.into_iter().for_each(|(_,e)| self.check_expr(e));
-                match self.env.lookup(ty_name) {
+                match self.env.lookup(*ty_name) {
                     Some(Binding::Struct(s)) => {
                         let (_, fields) = &*s;
                         check_unique_names(values, |(name,_)| *name, "initializer");
@@ -412,7 +412,7 @@ impl Check
                 self.check_expr(rhs);
                 match lhs {
                     LValue::Id{name} => {
-                        let t = match self.env.lookup(&name) {
+                        let t = match self.env.lookup(*name) {
                             Some(Binding::Local(t)) =>
                                 t,
                             Some(Binding::Global(mutable, t)) =>
@@ -426,7 +426,7 @@ impl Check
                     }
                     LValue::Field{base,field} => {
                         self.check_expr(base);
-                        let ty = self.check_struct_ref(base, field);
+                        let ty = self.check_struct_ref(base, *field);
                         if !is_assignable_type(Some(ty), rhs.ty) {
                             panic!("Type of value being stored does not match field");
                         }
@@ -442,11 +442,11 @@ impl Check
         }
     }
 
-    fn check_struct_ref(&mut self, base:&Box<Expr>, field:&Id) -> Type {
+    fn check_struct_ref(&mut self, base:&Box<Expr>, field:Id) -> Type {
         match base.ty {
             Some(Type::CookedRef(s_name)) => {
-                let (_,fields) = &*self.env.get_struct_def(&s_name);
-                let the_field = fields.into_iter().find(|(name,_)| name == field);
+                let (_,fields) = &*self.env.get_struct_def(s_name);
+                let the_field = fields.into_iter().find(|(name,_)| *name == field);
                 match the_field {
                     Some((_,ty)) => *ty,
                     None => {
@@ -466,7 +466,7 @@ impl Check
         let mut replacement_type = None;
         match ty {
             Type::RawRef(name) => {
-                match self.env.lookup(&name) {
+                match self.env.lookup(*name) {
                     Some(Binding::Struct(_)) => {
                         replacement_type = Some(Type::CookedRef(*name));
                     }

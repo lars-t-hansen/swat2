@@ -48,7 +48,7 @@ impl<'a> Waster<'a>
         if g.imported {
             self.emit(&format!("(import \"\" \"{}\" (global {}))", &g.name, ty));
         } else {
-            let export_clause = maybe_export(g.exported, &g.name);
+            let export_clause = maybe_export(g.exported, g.name);
             self.emit(&format!("(global ${} {} {} ", &g.name, &export_clause, ty));
             self.wast_expr(&g.init);
             self.emit(")\n");
@@ -72,7 +72,7 @@ impl<'a> Waster<'a>
                                &params,
                                &result));
         } else {
-            let export_clause = maybe_export(f.exported, &f.name);
+            let export_clause = maybe_export(f.exported, f.name);
             self.emit(&format!("(func ${} {} {} {}\n", &f.name, &export_clause, params, result));
             if let Some(locals) = &f.locals {
                 for (name, ty) in locals {
@@ -257,7 +257,7 @@ impl<'a> Waster<'a>
     }
 }
 
-fn maybe_export(exported: bool, name:&Id) -> String {
+fn maybe_export(exported: bool, name:Id) -> String {
     if exported {
         format!("(export \"{}\")", name)
     } else {

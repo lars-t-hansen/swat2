@@ -79,7 +79,7 @@ impl<T> IntrinsicEnv<T>
         }
     }
 
-    pub fn lookup(&self, name:&Id) -> Option<Binding<T>> {
+    pub fn lookup(&self, name:Id) -> Option<Binding<T>> {
         match self.intrinsics.get(&name) {
             Some((b, op)) => Some(Binding::Intrinsic(b.clone(), *op)),
             None          => None
@@ -99,49 +99,49 @@ impl<T> ToplevelEnv<T>
         ToplevelEnv { env: HashMap::new() }
     }
 
-    pub fn probe(&self, name:&Id) -> bool {
+    pub fn probe(&self, name:Id) -> bool {
         self.env.contains_key(&name)
     }
 
-    pub fn lookup(&self, name:&Id) -> Option<Binding<T>> {
+    pub fn lookup(&self, name:Id) -> Option<Binding<T>> {
         match self.env.get(&name) {
             Some(b) => Some(b.clone()),
             None    => None
         }
     }
 
-    pub fn remove(&mut self, name:&Id) {
-        self.env.remove(name);
+    pub fn remove(&mut self, name:Id) {
+        self.env.remove(&name);
     }
 
-    pub fn insert_function(&mut self, name:&Id, param_types:Vec<Type>, retn:Option<Type>) {
-        self.env.insert(name.clone(), Binding::Function(Rc::new((param_types, retn))));
+    pub fn insert_function(&mut self, name:Id, param_types:Vec<Type>, retn:Option<Type>) {
+        self.env.insert(name, Binding::Function(Rc::new((param_types, retn))));
     }
 
-    pub fn is_function(&self, name:&Id) -> bool {
-        match self.env.get(name) {
+    pub fn is_function(&self, name:Id) -> bool {
+        match self.env.get(&name) {
             Some(Binding::Function(_)) => true,
             _ => false
         }
     }
 
-    pub fn insert_global(&mut self, name:&Id, mutable:bool, ty:Type) {
-        self.env.insert(name.clone(), Binding::Global(mutable, ty));
+    pub fn insert_global(&mut self, name:Id, mutable:bool, ty:Type) {
+        self.env.insert(name, Binding::Global(mutable, ty));
     }
 
-    pub fn is_global(&self, name:&Id) -> bool {
-        match self.env.get(name) {
+    pub fn is_global(&self, name:Id) -> bool {
+        match self.env.get(&name) {
             Some(Binding::Global(_,_)) => true,
             _ => false
         }
     }
 
-    pub fn insert_struct(&mut self, name:&Id, fields:Vec<(Id,Type)>) {
-        self.env.insert(name.clone(), Binding::Struct(Rc::new((name.clone(),fields))));
+    pub fn insert_struct(&mut self, name:Id, fields:Vec<(Id,Type)>) {
+        self.env.insert(name, Binding::Struct(Rc::new((name.clone(),fields))));
     }
 
-    pub fn is_struct(&self, name:&Id) -> bool {
-        match self.env.get(name) {
+    pub fn is_struct(&self, name:Id) -> bool {
+        match self.env.get(&name) {
             Some(Binding::Struct(_)) => true,
             _ => false
         }
@@ -171,22 +171,22 @@ impl<T> LocalEnv<T>
         self.locals.pop().unwrap();
     }
 
-    pub fn add_param(&mut self, param_name: &Id, param_attrib: T) {
+    pub fn add_param(&mut self, param_name: Id, param_attrib: T) {
         let last = self.locals.len()-1;
-        self.locals[last].push((param_name.clone(), Binding::Local(param_attrib)));
+        self.locals[last].push((param_name, Binding::Local(param_attrib)));
     }
 
-    pub fn add_local(&mut self, local_name: &Id, local_attrib: T) {
+    pub fn add_local(&mut self, local_name: Id, local_attrib: T) {
         let last = self.locals.len()-1;
-        self.locals[last].push((local_name.clone(), Binding::Local(local_attrib)));
+        self.locals[last].push((local_name, Binding::Local(local_attrib)));
     }
 
-    pub fn add_label(&mut self, label: &Id) {
+    pub fn add_label(&mut self, label: Id) {
         let last = self.locals.len()-1;
-        self.locals[last].push((label.clone(), Binding::Label));
+        self.locals[last].push((label, Binding::Label));
     }
 
-    pub fn lookup(&self, id:&Id) -> Option<Binding<T>> {
+    pub fn lookup(&self, id:Id) -> Option<Binding<T>> {
         let mut ribno = self.locals.len() as i32 - 1;
         while ribno >= 0 {
             let rib = &self.locals[ribno as usize];
@@ -195,7 +195,7 @@ impl<T> LocalEnv<T>
             while locno >= 0 {
                 let item = &rib[locno as usize];
                 locno -= 1;
-                if id == &item.0 {
+                if id == item.0 {
                     return Some(item.1.clone());
                 }
             }
@@ -225,7 +225,7 @@ impl<T> Env<T>
         }
     }
 
-    pub fn lookup(&self, id:&Id) -> Option<Binding<T>> {
+    pub fn lookup(&self, id:Id) -> Option<Binding<T>> {
         if let Some(b) = self.locals.lookup(id) {
             Some(b)
         } else if let Some(b) = self.toplevel.lookup(id) {
@@ -238,52 +238,52 @@ impl<T> Env<T>
     }
 
     pub fn predefine_global(&mut self, g:&GlobalDef) {
-        assert!(!self.toplevel.probe(&g.name));
-        self.toplevel.insert_global(&g.name, false, Type::I32);
+        assert!(!self.toplevel.probe(g.name));
+        self.toplevel.insert_global(g.name, false, Type::I32);
     }
 
     pub fn elaborate_global(&mut self, g:&GlobalDef) {
-        assert!(self.toplevel.is_global(&g.name));
-        self.toplevel.remove(&g.name);
+        assert!(self.toplevel.is_global(g.name));
+        self.toplevel.remove(g.name);
         self.define_global(g);
     }
 
     pub fn predefine_function(&mut self, f:&FunctionDef) {
-        assert!(!self.toplevel.probe(&f.name));
-        self.toplevel.insert_function(&f.name, vec![], None);
+        assert!(!self.toplevel.probe(f.name));
+        self.toplevel.insert_function(f.name, vec![], None);
     }
 
     pub fn elaborate_function(&mut self, f:&FunctionDef) {
-        assert!(self.toplevel.is_function(&f.name));
-        self.toplevel.remove(&f.name);
+        assert!(self.toplevel.is_function(f.name));
+        self.toplevel.remove(f.name);
         self.define_function(f);
     }
 
     pub fn predefine_struct(&mut self, s:&StructDef) {
-        assert!(!self.toplevel.probe(&s.name));
-        self.toplevel.insert_struct(&s.name, vec![]);
+        assert!(!self.toplevel.probe(s.name));
+        self.toplevel.insert_struct(s.name, vec![]);
     }
 
     pub fn elaborate_struct(&mut self, s:&StructDef) {
-        assert!(self.toplevel.is_struct(&s.name));
-        self.toplevel.remove(&s.name);
+        assert!(self.toplevel.is_struct(s.name));
+        self.toplevel.remove(s.name);
         self.define_struct(s);
     }
 
     pub fn define_global(&mut self, g:&GlobalDef) {
-        assert!(!self.toplevel.probe(&g.name));
-        self.toplevel.insert_global(&g.name, g.mutable, g.ty);
+        assert!(!self.toplevel.probe(g.name));
+        self.toplevel.insert_global(g.name, g.mutable, g.ty);
     }
 
     pub fn define_function(&mut self, f:&FunctionDef) {
-        assert!(!self.toplevel.probe(&f.name));
+        assert!(!self.toplevel.probe(f.name));
         let param_types = (&f.formals).into_iter().map(|(_,ty)| *ty).collect();
-        self.toplevel.insert_function(&f.name, param_types, f.retn);
+        self.toplevel.insert_function(f.name, param_types, f.retn);
     }
 
     pub fn define_struct(&mut self, g:&StructDef) {
-        assert!(!self.toplevel.probe(&g.name));
-        self.toplevel.insert_struct(&g.name, g.fields.clone());
+        assert!(!self.toplevel.probe(g.name));
+        self.toplevel.insert_struct(g.name, g.fields.clone());
     }
     
     pub fn define_toplevel(&mut self, item:&ModItem) {
@@ -294,7 +294,7 @@ impl<T> Env<T>
         }
     }
 
-    pub fn get_struct_def(&self, name:&Id) -> Rc<Struct> {
+    pub fn get_struct_def(&self, name:Id) -> Rc<Struct> {
         match self.toplevel.lookup(name) {
             Some(Binding::Struct(s)) => s,
             _ => unreachable!()

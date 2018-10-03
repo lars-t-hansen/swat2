@@ -61,7 +61,7 @@ impl Flatten
         if !f.imported {
             self.env.locals.push_rib();
             (&f.formals).into_iter()
-                .for_each(|(name,_ty)| self.env.locals.add_param(name, name.clone()));
+                .for_each(|(name,_ty)| self.env.locals.add_param(*name, *name));
 
             self.flatten_block(&mut f.body);
 
@@ -84,8 +84,8 @@ impl Flatten
                     let new_name = Id::gensym(&l.name.name());
                     let mut new_init = box_void();
                     swap(&mut l.init, &mut new_init);
-                    new_exprs.push(box_set_local(&new_name, new_init));
-                    self.env.locals.add_local(&l.name, new_name.clone());
+                    new_exprs.push(box_set_local(new_name, new_init));
+                    self.env.locals.add_local(l.name, new_name);
                     self.localdefs.push((new_name, l.ty));
                 }
                 BlockItem::Expr(e) => {
@@ -141,8 +141,8 @@ impl Flatten
                 self.flatten_block(alternate);
             }
             Uxpr::Iterate{body, break_label, continue_label} => {
-                self.env.locals.add_label(&break_label);
-                self.env.locals.add_label(&continue_label);
+                self.env.locals.add_label(*break_label);
+                self.env.locals.add_label(*continue_label);
                 self.flatten_block(body);
             }
             Uxpr::Block{block} => {
@@ -179,12 +179,12 @@ impl Flatten
                 }
             }
             Uxpr::Id{name} => {
-                match self.env.lookup(&name) {
+                match self.env.lookup(*name) {
                     Some(Binding::Local(new_name)) => {
-                        replacement_expr = Some(box_get_local(expr.ty, &new_name));
+                        replacement_expr = Some(box_get_local(expr.ty, new_name));
                     }
                     Some(Binding::Global(_mutable, _)) => {
-                        replacement_expr = Some(box_get_global(expr.ty, &name));
+                        replacement_expr = Some(box_get_global(expr.ty, *name));
                     }
                     _ => { unreachable!(); }
                 }
@@ -208,12 +208,12 @@ impl Flatten
                 swap(rhs, &mut new_rhs);
                 match lhs {
                     LValue::Id{name} => {
-                        match self.env.lookup(&name) {
+                        match self.env.lookup(*name) {
                             Some(Binding::Local(new_name)) => {
-                                replacement_expr = Some(box_set_local(&new_name, new_rhs));
+                                replacement_expr = Some(box_set_local(new_name, new_rhs));
                             }
                             Some(Binding::Global(_mutable, _)) => {
-                                replacement_expr = Some(box_set_global(&name, new_rhs));
+                                replacement_expr = Some(box_set_global(*name, new_rhs));
                             }
                             _ => { unreachable!() }
                         }

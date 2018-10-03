@@ -65,7 +65,7 @@ impl Desugarer
     fn desugar_function(&mut self, f:&mut FunctionDef) {
         if !f.imported {
             self.env.locals.push_rib();
-            (&f.formals).into_iter().for_each(|(name,ty)| self.env.locals.add_param(name, *ty));
+            (&f.formals).into_iter().for_each(|(name,ty)| self.env.locals.add_param(*name, *ty));
             self.desugar_block(&mut f.body);
             self.env.locals.pop_rib();
         }
@@ -77,7 +77,7 @@ impl Desugarer
             match item {
                 BlockItem::Let(l) => {
                     self.desugar_expr(&mut l.init);
-                    self.env.locals.add_local(&l.name, l.ty);
+                    self.env.locals.add_local(l.name, l.ty);
                 }
                 BlockItem::Expr(e) => {
                     self.desugar_expr(e);
@@ -109,10 +109,10 @@ impl Desugarer
                 let continue_label = Id::gensym("continue");
                 let cond_break = box_if(new_test,
                                         box_block(vec![box_void()]),
-                                        box_block(vec![box_break(&break_label)]));
+                                        box_block(vec![box_break(break_label)]));
 
                 new_body.items.insert(0, BlockItem::Expr(cond_break));
-                let mut new_expr = box_iterate(&break_label, &continue_label, new_body);
+                let mut new_expr = box_iterate(break_label, continue_label, new_body);
                 self.desugar_expr(&mut new_expr);
                 replacement_expr = Some(new_expr);
             }
@@ -121,13 +121,13 @@ impl Desugarer
                 swap(body, &mut new_body);
 
                 let continue_label = Id::gensym("continue");
-                let mut new_expr = box_iterate(&break_label, &continue_label, new_body);
+                let mut new_expr = box_iterate(*break_label, continue_label, new_body);
                 self.desugar_expr(&mut new_expr);
                 replacement_expr = Some(new_expr);
             }
             Uxpr::Iterate{body, break_label, continue_label} => {
-                self.env.locals.add_label(&break_label);
-                self.env.locals.add_label(&continue_label);
+                self.env.locals.add_label(*break_label);
+                self.env.locals.add_label(*continue_label);
                 self.desugar_block(body);
             }
             Uxpr::Break{..} => { }
@@ -153,12 +153,12 @@ impl Desugarer
                         swap(rhs, &mut new_rhs);
 
                         let mut block_items = vec![];
-                        block_items.push(BlockItem::Let(box_let(&tmp_x, ty.unwrap(), new_lhs)));
-                        block_items.push(BlockItem::Let(box_let(&tmp_y, ty.unwrap(), new_rhs)));
-                        let div = box_binop(ty, Binop::Div, box_id(ty, &tmp_x), box_id(ty, &tmp_y));
+                        block_items.push(BlockItem::Let(box_let(tmp_x, ty.unwrap(), new_lhs)));
+                        block_items.push(BlockItem::Let(box_let(tmp_y, ty.unwrap(), new_rhs)));
+                        let div = box_binop(ty, Binop::Div, box_id(ty, tmp_x), box_id(ty, tmp_y));
                         let trunc = box_unop(ty, Unop::Trunc, div);
-                        let mul = box_binop(ty, Binop::Mul, trunc, box_id(ty, &tmp_y));
-                        let diff = box_binop(ty, Binop::Sub, box_id(ty, &tmp_x), mul);
+                        let mul = box_binop(ty, Binop::Mul, trunc, box_id(ty, tmp_y));
+                        let diff = box_binop(ty, Binop::Sub, box_id(ty, tmp_x), mul);
                         block_items.push(BlockItem::Expr(diff));
                         replacement_expr = Some(box_block_expr(ty, block_items));
                     }
@@ -226,15 +226,15 @@ impl Desugarer
                             }
                             Typeop::As => {
                                 let tmp_name = Id::gensym("tmp");
-                                let test = box_unop(Some(Type::I32), Unop::IsNull, box_id(expr.ty, &tmp_name));
+                                let test = box_unop(Some(Type::I32), Unop::IsNull, box_id(expr.ty, tmp_name));
                                 let consequent = box_block(vec![box_downcast_failed()]);
                                 let alternate = box_block(vec![]);
                                 let guard = box_if(test, consequent, alternate);
                                 replacement_expr = Some(
                                     box_block_expr(expr.ty,
-                                                   vec![BlockItem::Let(box_let(&tmp_name, expr.ty.unwrap(), narrow)),
+                                                   vec![BlockItem::Let(box_let(tmp_name, expr.ty.unwrap(), narrow)),
                                                         BlockItem::Expr(guard),
-                                                        BlockItem::Expr(box_id(expr.ty, &tmp_name))]));
+                                                        BlockItem::Expr(box_id(expr.ty, tmp_name))]));
                             }
                         }
                     }
@@ -248,7 +248,7 @@ impl Desugarer
                 for actual in &mut *actuals {
                     self.desugar_expr(actual);
                 }
-                if let Binding::Intrinsic(sigs, op) = self.env.lookup(&name).unwrap() {
+                if let Binding::Intrinsic(sigs, op) = self.env.lookup(*name).unwrap() {
                     for sig in &*sigs {
                         let (formals, ret) = &**sig;
                         if match_parameters(&formals, actuals) {
@@ -289,12 +289,12 @@ impl Desugarer
                     self.desugar_expr(&mut value);
                     let tmp_name = Id::gensym("tmp");
                     let field_ty = value.ty.unwrap();
-                    block_items.push(BlockItem::Let(box_let(&tmp_name, field_ty, value)));
-                    initializers.push((field, box_id(Some(field_ty), &tmp_name)));
+                    block_items.push(BlockItem::Let(box_let(tmp_name, field_ty, value)));
+                    initializers.push((field, box_id(Some(field_ty), tmp_name)));
                 }
 
                 let mut indices = HashMap::new();
-                match self.env.lookup(ty_name) {
+                match self.env.lookup(*ty_name) {
                     Some(Binding::Struct(s)) => {
                         let fields = &s.1;
                         let mut k = 0;
@@ -313,7 +313,7 @@ impl Desugarer
                     else { Ordering::Equal }
                 });
 
-                block_items.push(BlockItem::Expr(box_new(expr.ty, ty_name, initializers)));
+                block_items.push(BlockItem::Expr(box_new(expr.ty, *ty_name, initializers)));
                 replacement_expr = Some(box_block_expr(expr.ty, block_items));
             }
             Uxpr::Assign{lhs, rhs} => {

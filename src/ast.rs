@@ -78,6 +78,9 @@ pub struct LetDefn {
 // store a name index in the Id, so as not to carry an RC value around and
 // require it to be cloned or expensively copied everywhere.
 //
+// In addition, Id copies should be cheap because we copy them freely rather
+// than borrowing them, just like Types.
+//
 // As a side effect, environments can map Ids directly, not having to go via
 // strings, and Id comparisons are generally cheaper.
 
@@ -298,8 +301,8 @@ pub enum Number {
 
 // Utilities for AST construction and rewriting
 
-pub fn box_let(name: &Id, ty: Type, init: Box<Expr>) -> Box<LetDefn> {
-    Box::new(LetDefn { name: *name, ty, init })
+pub fn box_let(name: Id, ty: Type, init: Box<Expr>) -> Box<LetDefn> {
+    Box::new(LetDefn { name, ty, init })
 }
 
 pub fn box_block(exprs:Vec<Box<Expr>>) -> Box<Block> {
@@ -311,8 +314,8 @@ pub fn box_void() -> Box<Expr> {
     Box::new(Expr{ ty: None, u: Uxpr::Void })
 }
 
-pub fn box_id(ty:Option<Type>, name:&Id) -> Box<Expr> {
-    Box::new(Expr{ ty, u: Uxpr::Id{name: *name} })
+pub fn box_id(ty:Option<Type>, name:Id) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::Id{name} })
 }
 
 pub fn box_unop(ty:Option<Type>, op:Unop, opd:Box<Expr>) -> Box<Expr> {
@@ -335,8 +338,8 @@ pub fn box_downcast_failed() -> Box<Expr> {
     Box::new(Expr { ty: None, u:  Uxpr::DowncastFailed })
 }
 
-pub fn box_new(ty:Option<Type>, ty_name:&Id, values: Vec<(Id, Box<Expr>)>) -> Box<Expr> {
-    Box::new(Expr { ty, u: Uxpr::New{ ty_name: *ty_name, values } })
+pub fn box_new(ty:Option<Type>, ty_name:Id, values: Vec<(Id, Box<Expr>)>) -> Box<Expr> {
+    Box::new(Expr { ty, u: Uxpr::New{ ty_name, values } })
 }
 
 pub fn box_block_expr(ty: Option<Type>, items: Vec<BlockItem>) -> Box<Expr> {
@@ -355,32 +358,28 @@ pub fn box_sequence(ty:Option<Type>, body:Vec<Box<Expr>>) -> Box<Expr> {
     Box::new(Expr{ ty: ty.clone(), u: Uxpr::Sequence{ty, body}})
 }
 
-pub fn box_break(label:&Id) -> Box<Expr> {
-    Box::new(Expr{ ty: None, u: Uxpr::Break{ label: label.clone() } })
+pub fn box_break(label:Id) -> Box<Expr> {
+    Box::new(Expr{ ty: None, u: Uxpr::Break{ label } })
 }
 
-pub fn box_iterate(break_label:&Id, continue_label:&Id, body:Box<Block>) -> Box<Expr> {
-    Box::new(Expr{ ty:None, u:Uxpr::Iterate{ break_label: break_label.clone(),
-                                             continue_label: continue_label.clone(),
-                                             body } })
+pub fn box_iterate(break_label:Id, continue_label:Id, body:Box<Block>) -> Box<Expr> {
+    Box::new(Expr{ ty:None, u:Uxpr::Iterate{ break_label, continue_label, body } })
 }
 
-pub fn box_get_local(ty:Option<Type>, name:&Id) -> Box<Expr> {
-    Box::new(Expr{ ty, u: Uxpr::GetLocal{name: *name} })
+pub fn box_get_local(ty:Option<Type>, name:Id) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::GetLocal{ name } })
 }
 
-pub fn box_get_global(ty:Option<Type>, name:&Id) -> Box<Expr> {
-    Box::new(Expr{ ty, u: Uxpr::GetGlobal{name: *name} })
+pub fn box_get_global(ty:Option<Type>, name:Id) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::GetGlobal{ name } })
 }
 
-pub fn box_set_local(name:&Id, value:Box<Expr>) -> Box<Expr> {
-    Box::new(Expr{ ty: None,
-                   u:  Uxpr::SetLocal{name: *name, value} })
+pub fn box_set_local(name:Id, value:Box<Expr>) -> Box<Expr> {
+    Box::new(Expr{ ty: None, u: Uxpr::SetLocal{name, value} })
 }
 
-pub fn box_set_global(name:&Id, value:Box<Expr>) -> Box<Expr> {
-    Box::new(Expr{ ty: None,
-                   u:  Uxpr::SetGlobal{name: *name, value} })
+pub fn box_set_global(name:Id, value:Box<Expr>) -> Box<Expr> {
+    Box::new(Expr{ ty: None, u: Uxpr::SetGlobal{name, value} })
 }
 
 pub fn box_intlit(n:i64, ty:Type) -> Box<Expr> {
