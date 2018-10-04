@@ -1,0 +1,41 @@
+module Wabbit
+{
+    struct Wabbit {
+        value: i32,
+        left: Wabbit,
+        right: Wabbit
+    }
+
+    pub fn make_wabbit(n:i32) -> anyref {
+        wabbit(n)
+    }
+    fn wabbit(n:i32) -> Wabbit {
+        if n < 2 {
+            new Wabbit {
+                value: n,
+                left: null,
+                right: null
+            }
+        } else {
+            new Wabbit {
+                value: n,
+                left: wabbit(n-1),
+                right: wabbit(n-2)
+            }
+        }
+    }
+
+    pub fn sum_wabbit(w:anyref) -> i32 {
+        sum(w as Wabbit)
+    }
+    fn sum(w:Wabbit) -> i32 {
+        if w == null {
+            0
+        } else {
+            w.value + sum(w.left) + sum(w.right)
+        }
+    }
+}
+
+
+        

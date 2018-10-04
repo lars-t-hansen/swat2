@@ -146,12 +146,9 @@ impl<'a> Waster<'a>
                 let type_designator = match op {
                     Binop::ULess | Binop::ULessOrEqual | Binop::UGreater | Binop::UGreaterOrEqual |
                     Binop::Less | Binop::LessOrEqual | Binop::Greater | Binop::GreaterOrEqual |
-                    Binop::Equal | Binop::NotEqual => {
-                        render_op_type(lhs.ty)
-                    }
-                    _ => {
-                        render_op_type(e.ty)
-                    }
+                    Binop::Equal | Binop::NotEqual
+                        => render_op_type(lhs.ty),
+                    _   => render_op_type(e.ty)
                 };
                 self.emit(&format!("({}.{} ", type_designator, render_binop(*op, lhs.ty.unwrap())));
                 self.wast_expr(&lhs);
@@ -160,7 +157,11 @@ impl<'a> Waster<'a>
                 self.emit(")");
             }
             Uxpr::Unop{op, opd} => {
-                self.emit(&format!("({}.{} ", &render_op_type(e.ty), render_unop(*op)));
+                let type_designator = match op {
+                    Unop::IsNull => render_op_type(opd.ty),
+                    _ => render_op_type(e.ty)
+                };
+                self.emit(&format!("({}.{} ", type_designator, render_unop(*op)));
                 self.wast_expr(&opd);
                 self.emit(")");
             }
@@ -218,7 +219,7 @@ impl<'a> Waster<'a>
             }
             Uxpr::GetField{base, field} => {
                 if let Some(Type::CookedRef(ty_name)) = base.ty {
-                    self.emit(&format!("(struct.get ${} ${}.${} ", &ty_name, &ty_name, field));
+                    self.emit(&format!("(struct.get ${} ${}.{} ", &ty_name, &ty_name, field));
                     self.wast_expr(base);
                     self.emit(")");
                 } else {
@@ -227,7 +228,7 @@ impl<'a> Waster<'a>
             }
             Uxpr::SetField{base, field, value} => {
                 if let Some(Type::CookedRef(ty_name)) = base.ty {
-                    self.emit(&format!("(struct.set ${} ${}.${} ", &ty_name, &ty_name, field));
+                    self.emit(&format!("(struct.set ${} ${}.{} ", &ty_name, &ty_name, field));
                     self.wast_expr(base);
                     self.emit(" ");
                     self.wast_expr(value);

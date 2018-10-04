@@ -137,6 +137,21 @@ assertEq(TEST.exports.not_equalp(a, a), 0);
 ");
 }
 
+#[test]
+fn wabbit() {
+    run_wast(&compile_swat("test/wabbit"),
+             &format!("assertEq(TEST.exports.sum_wabbit(TEST.exports.make_wabbit(10)), {});",
+                      wabbit_result(10)));
+}
+
+fn wabbit_result(n:i32) -> i32 {
+    if n < 2 {
+        n
+    } else {
+        n + wabbit_result(n-1) + wabbit_result(n-2)
+    }
+}
+
 // Utility code.
 
 fn compile_swat(basename:&str) -> String {

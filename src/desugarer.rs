@@ -100,8 +100,12 @@ impl Desugarer
                 assert!(is_same_type(Some(*ty), Some(Type::NullRef)));
                 match ctx_ty {
                     None => { }
+                    Some(t @ Type::NullRef) => {  *ty = t; }
                     Some(t @ Type::CookedRef(_)) => { *ty = t; }
-                    _ => { unreachable!(); }
+                    _ => {
+                        println!("{:?}", ctx_ty);
+                        unreachable!();
+                    }
                 }
             }
             Uxpr::If{test, consequent, alternate} => {
@@ -143,8 +147,9 @@ impl Desugarer
             }
             Uxpr::Break{..} => { }
             Uxpr::Binop{op, lhs, rhs} => {
-                self.desugar_expr(lhs, expr.ty);
-                self.desugar_expr(rhs, expr.ty);
+                let new_ty = merge_compatible_types(lhs.ty, rhs.ty);
+                self.desugar_expr(lhs, new_ty);
+                self.desugar_expr(rhs, new_ty);
                 match op {
                     Binop::NotEqual if is_ref_or_anyref_type(lhs.ty)  => {
                         let mut new_lhs = box_void();
@@ -297,11 +302,15 @@ impl Desugarer
                 let mut initializers = vec![];
 
                 for (field, mut value) in values.drain(0..) {
-                    let field_ty = value.ty.unwrap();
-                    self.desugar_expr(&mut value, Some(field_ty));
-                    let tmp_name = Id::gensym("tmp");
-                    block_items.push(BlockItem::Let(box_let(tmp_name, field_ty, value)));
-                    initializers.push((field, box_id(Some(field_ty), tmp_name)));
+                    let (_,fields) = &*self.env.get_struct_def(*ty_name);
+                    if let Some((_,field_ty)) = fields.into_iter().find(|(name,_)| *name == field) {
+                        self.desugar_expr(&mut value, Some(*field_ty));
+                        let tmp_name = Id::gensym("tmp");
+                        block_items.push(BlockItem::Let(box_let(tmp_name, *field_ty, value)));
+                        initializers.push((field, box_id(Some(*field_ty), tmp_name)));
+                    } else {
+                        unreachable!();
+                    }
                 }
 
                 let mut indices = HashMap::new();
