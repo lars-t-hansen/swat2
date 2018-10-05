@@ -162,6 +162,8 @@ pub enum Type {
     // global type defn that is not shadowed by a local binding, and type
     // comparison need not consider environments.
     CookedRef(Id),
+    // An Array is itself a reference type
+    Array(Type)
 }
 
 pub fn fmt_type(t:Option<Type>) -> String
@@ -261,7 +263,9 @@ pub enum Uxpr {
     NumLit{value: Number},
     Id{name: Id},
     Deref{base: Box<Expr>, field: Id},
+    Aref{base: Box<Expr>, index: Box<Expr>},
     New{ty_name: Id, values: Vec<(Id,Box<Expr>)>}, // "initializers" would be better than "values"
+    NewArray{ty: Type, length: Box<Expr>},
     If{test: Box<Expr>, consequent: Box<Block>, alternate: Box<Block>},
     While{test: Box<Expr>, body: Box<Block>},
     Loop{break_label: Id, body: Box<Block>},
@@ -296,7 +300,8 @@ pub enum Uxpr {
 #[derive(Debug)]
 pub enum LValue {
     Id{ty:Option<Type>, name:Id},
-    Field{ty:Option<Type>, base: Box<Expr>, field:Id}
+    Field{ty:Option<Type>, base: Box<Expr>, field:Id},
+    Element{ty:Option<Type>, base: Box<Expr>, index:Box<Expr>}
 }
 
 #[derive(Clone, Copy, Debug)]

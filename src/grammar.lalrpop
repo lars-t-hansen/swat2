@@ -72,7 +72,8 @@ Type: Type = {
     "f32" => Type::F32,
     "f64" => Type::F64,
     "anyref" => Type::AnyRef,
-    <name:Id> => Type::RawRef(name)
+    <name:Id> => Type::RawRef(name),
+    "[" <t:Type> "]" => Type::Array(t)
 }
 
 Id: Id = {
@@ -107,7 +108,8 @@ AssignExpr: Box<Expr> = {
 
 LValue: LValue = {
     <name:Id> => LValue::Id{ty:None, name},
-    <base:PrimaryExpr> "." <field:Id> => LValue::Field{ty:None, base, field}
+    <base:PrimaryExpr> "." <field:Id> => LValue::Field{ty:None, base, field},
+    <base:PrimaryExpr> "[" <index:Expr> "]" => LValue::Element{ty:None, base, index}
 }
 
 RelationalExpr: Box<Expr> = {
@@ -212,6 +214,9 @@ PrimaryExpr: Box<Expr> = {
     "new" <ty_name:Id> "{" <values:FieldValues> "}" => {
         Box::new(Expr{ty: None, u: Uxpr::New{ ty_name, values } })
     },
+    "new" "[" <ty:Type> "]" "(" <length:Length> ")" => {
+        Box::new(Expr{ty: None, u: Uxpr::NewArray{ ty, length } })
+    },
     "(" <e:Expr> ")" => {
         e
     },
@@ -227,6 +232,9 @@ PrimaryExpr: Box<Expr> = {
     },
     <base:PrimaryExpr> "." <field:Id> => {
         Box::new(Expr{ty: None, u:Uxpr::Deref{base, field}})
+    },
+    <base:PrimaryExpr> "[" <index:Expr> "]" => {
+        Box::new(Expr{ty: None, u:Uxpr::Aref{base, index}})
     },
     <n:IntLit> => {
         let bs = n.as_bytes();
