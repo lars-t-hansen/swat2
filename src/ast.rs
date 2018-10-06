@@ -55,6 +55,63 @@ pub struct StructDef {
     pub fields: Vec<(Id,Type)>
 }
 
+/*
+
+the table of array defs is tricky.  it is constructed during parsing without any information
+about what's in scope, so [snort] is bad if snort is the name of a local variable or a function
+but ok if it's the name of a global structure.  yet we need something to store in a Type
+when we parse, so that we can type check against it later.  Essentially, an array type 
+is a mini-ast.
+
+so there are two tables: raw and cooked.  the raw table stores what we got from the parser,
+ie, tiny trees, and we can hash-cons this if we want to - probably not important at this
+time.   when we typecheck, we get the tree from the raw table at each location where we
+check an ArrayRef, and we check the tree.  If the tree checks out we stored it in the cooked
+table and update the ref.  (So there should be an enum in ArrayRef, Raw and Cooked, or
+we should have ArrayRawRef and ArrayCookedRef, as for structs.)  The cooked table we
+want to hash-cons so that type comparison is easy.  Type names are global and we can
+ignore scoping issues.
+
+Really RawRef(Ref::{Struct,Array}(T)) and CookedRef(Ref::{Struct,Array}(T)).
+
+*/
+
+/*
+thread_local! {
+    // IdTable maps strings to IDs
+    static IdTable: RefCell<HashMap<String,usize>> = RefCell::new(HashMap::new());
+
+    // IdNames maps IDs to strings
+    static IdNames: RefCell<Vec<String>> = RefCell::new(vec![]);
+}
+ */
+
+#[derive(Debug)]
+pub struct ArrayDef {
+    pub ty: Type
+}
+
+impl ArrayDef {
+    pub fn intern(ty:Type) -> usize {
+/*
+        IdTable.with(|tbl| {
+            if let Some(k) = tbl.borrow().get(name) {
+                return Id { name: *k };
+            }
+
+            IdNames.with(|names| {
+                let mut names = names.borrow_mut();
+                let k = names.len();
+                names.push(name.to_string());
+                tbl.borrow_mut().insert(name.to_string(), k);
+                Id { name: k }
+            })
+        })
+         */
+        0
+    }
+}
+
 #[derive(Debug)]
 pub struct Block {
     pub items: Vec<BlockItem>,
@@ -142,6 +199,9 @@ impl fmt::Display for Id {
     }
 }
 
+// It's important for simplicity that Type is Copy, but that does require some
+// careful indirection via struct and array tables.
+//
 // Not PartialEq so that we can avoid accidentally comparing types with `==`.
 
 #[derive(Copy, Clone, Debug)]
@@ -159,11 +219,12 @@ pub enum Type {
     // it is eliminated by the desugarer.
     NullRef,
     // CookedRef is produced by the type checker, Id is known to reference a
-    // global type defn that is not shadowed by a local binding, and type
+    // global struct defn that is not shadowed by a local binding, and type
     // comparison need not consider environments.
     CookedRef(Id),
-    // An Array is itself a reference type
-    Array(Type)
+    // The payload is an index into a global table of ArrayDef values, these
+    // are made unique (and indices may be updated) by the type checker.
+    ArrayRef(usize)
 }
 
 pub fn fmt_type(t:Option<Type>) -> String
@@ -179,7 +240,8 @@ pub fn fmt_type(t:Option<Type>) -> String
                 Type::AnyRef => "anyref".to_string(),
                 Type::RawRef(n) => format!("(rawref {})", n),
                 Type::NullRef => "nullref".to_string(),
-                Type::CookedRef(n) => format!("(ref {})", n)
+                Type::CookedRef(n) => format!("(ref {})", n),
+                Type::ArrayRef(n) => format!("(array {})", n),
             }
         }
     }
@@ -533,6 +595,7 @@ pub fn is_int_type(t1:Option<Type>) -> bool {
         Some(Type::AnyRef) => false,
         Some(Type::NullRef) => false,
         Some(Type::CookedRef(_)) => false,
+        Some(Type::ArrayRef(_)) => false,
         Some(Type::RawRef(_)) => unreachable!()
     }
 }
@@ -546,6 +609,7 @@ pub fn is_i32_type(t1:Option<Type>) -> bool {
         Some(Type::AnyRef) => false,
         Some(Type::NullRef) => false,
         Some(Type::CookedRef(_)) => false,
+        Some(Type::ArrayRef(_)) => false,
         Some(Type::RawRef(_)) => unreachable!()
     }
 }
@@ -558,6 +622,7 @@ pub fn is_float_type(t1:Option<Type>) -> bool {
         Some(Type::AnyRef) => false,
         Some(Type::NullRef) => false,
         Some(Type::CookedRef(_)) => false,
+        Some(Type::ArrayRef(_)) => false,
         Some(Type::RawRef(_)) => unreachable!()
     }
 }
@@ -578,6 +643,7 @@ pub fn is_ref_or_anyref_type(t1:Option<Type>) -> bool {
         Some(Type::AnyRef) => true,
         Some(Type::NullRef) => true,
         Some(Type::CookedRef(_)) => true,
+        Some(Type::ArrayRef(_)) => true,
         Some(Type::RawRef(_)) => unreachable!()
     }
 }
@@ -590,6 +656,7 @@ pub fn is_ref_type(t1:Option<Type>) -> bool {
         Some(Type::AnyRef) => false,
         Some(Type::NullRef) => false,
         Some(Type::CookedRef(_)) => true,
+        Some(Type::ArrayRef(_)) => true,
         Some(Type::RawRef(_)) => unreachable!()
     }
 }

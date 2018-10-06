@@ -379,6 +379,9 @@ impl Check
                 let ty = self.check_struct_ref(base, *field);
                 expr.ty = Some(ty);
             }
+            Uxpr::Aref{..} => {
+                panic!("NYI");
+            }
             Uxpr::New{ty_name, values} => {
                 values.into_iter().for_each(|(_,e)| self.check_expr(e));
                 match self.env.lookup(*ty_name) {
@@ -409,6 +412,9 @@ impl Check
                     }
                 }
             }
+            Uxpr::NewArray{..} => {
+                panic!("NYI");
+            }
             Uxpr::Assign{lhs, rhs} => {
                 self.check_expr(rhs);
                 match lhs {
@@ -433,6 +439,9 @@ impl Check
                             panic!("Type of value being stored does not match field");
                         }
                         *ty = Some(base_ty);
+                    }
+                    LValue::Element{..} => {
+                        panic!("NYI");
                     }
                 }
             }

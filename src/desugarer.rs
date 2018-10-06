@@ -293,6 +293,9 @@ impl Desugarer
             Uxpr::Deref{base, ..} => {
                 self.desugar_expr(base, expr.ty);
             }
+            Uxpr::Aref{..} => {
+                panic!("NYI");
+            }
             Uxpr::New{ty_name, values} => {
                 // Reorganize the values so that they are in the right order for eventual structure
                 // construction (and so the names in the initializer list can be ignored).  Preserve
@@ -346,7 +349,13 @@ impl Desugarer
                         let base_ty = base.ty;
                         self.desugar_expr(base, base_ty);
                     }
+                    LValue::Element{..} => {
+                        panic!("NYI");
+                    }
                 }
+            }
+            Uxpr::NewArray{..} => {
+                panic!("NYI");
             }
             Uxpr::Block{..} | Uxpr::Sequence{..} | Uxpr::Drop{..} |
             Uxpr::ExactFallibleUnboxAnyRef{..} | Uxpr::DowncastFailed |

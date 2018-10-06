@@ -73,7 +73,7 @@ Type: Type = {
     "f64" => Type::F64,
     "anyref" => Type::AnyRef,
     <name:Id> => Type::RawRef(name),
-    "[" <t:Type> "]" => Type::Array(t)
+    "[" <t:Type> "]" => Type::ArrayRef(ArrayDef::intern(t))
 }
 
 Id: Id = {
@@ -214,7 +214,7 @@ PrimaryExpr: Box<Expr> = {
     "new" <ty_name:Id> "{" <values:FieldValues> "}" => {
         Box::new(Expr{ty: None, u: Uxpr::New{ ty_name, values } })
     },
-    "new" "[" <ty:Type> "]" "(" <length:Length> ")" => {
+    "new" "[" <ty:Type> "]" "(" <length:Expr> ")" => {
         Box::new(Expr{ty: None, u: Uxpr::NewArray{ ty, length } })
     },
     "(" <e:Expr> ")" => {

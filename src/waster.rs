@@ -246,7 +246,7 @@ impl<'a> Waster<'a>
                 self.emit(")");
             }
             Uxpr::Void | Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Block{..} | Uxpr::Typeop{..} |
-            Uxpr::Assign{..} | Uxpr::Id{..} | Uxpr::Deref{..} =>
+            Uxpr::Assign{..} | Uxpr::Id{..} | Uxpr::Deref{..} | Uxpr::Aref{..} | Uxpr::NewArray{..} =>
             {
                 unreachable!();
             }
@@ -276,6 +276,7 @@ fn render_type(ty:Option<Type>) -> String {
         Some(Type::CookedRef(id)) => format!("(ref ${})", id),
         Some(Type::RawRef(_)) => unreachable!(),
         Some(Type::NullRef) => unreachable!(),
+        Some(Type::ArrayRef(_)) => unreachable!(),
         None => "".to_string()
     }
 }
@@ -290,6 +291,7 @@ fn render_op_type(ty:Option<Type>) -> &'static str {
         Some(Type::CookedRef(_)) => "ref",
         Some(Type::RawRef(_)) => unreachable!(),
         Some(Type::NullRef) => unreachable!(),
+        Some(Type::ArrayRef(_)) => unreachable!(),
         None => unreachable!()
     }
 }

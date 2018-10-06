@@ -226,11 +226,14 @@ impl Flatten
                             Box::new(Expr{ ty: expr.ty,
                                            u:  Uxpr::SetField{ base: new_base, field: *field, value: new_rhs } }));
                     }
+                    LValue::Element{..} => {
+                        unreachable!();
+                    }
                 }
             }
             Uxpr::While{..} | Uxpr::Loop{..} | Uxpr::Sequence{..} | Uxpr::Drop{..} | Uxpr::Typeop{..} |
             Uxpr::GetLocal{..} | Uxpr::GetGlobal{..} | Uxpr::SetLocal{..} | Uxpr::SetGlobal{..} |
-            Uxpr::GetField{..} | Uxpr::SetField{..} => {
+            Uxpr::GetField{..} | Uxpr::SetField{..} | Uxpr::Aref{..} | Uxpr::NewArray{..} => {
                 unreachable!();
             }
         }
