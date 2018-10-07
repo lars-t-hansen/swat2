@@ -55,15 +55,39 @@ pub struct StructDef {
     pub fields: Vec<(Id,Type)>
 }
 
-/*
-thread_local! {
-    // RawArrayTable maps array types to usizes
-    static RawArrayTable: RefCell<HashMap<Type,usize>> = RefCell::new(HashMap::new());
-
-    // RawArrayNames maps usizes to array types
-    static IdNames: RefCell<Vec<String>> = RefCell::new(vec![]);
+struct TypeMap {
+    mapping: HashMap<TypeWithEq, usize>,
+    types:   Vec<Type>
 }
- */
+
+impl TypeMap
+{
+    fn new() -> TypeMap {
+        TypeMap {
+            mapping: HashMap::new(),
+            types:   vec![]
+        }
+    }
+        
+    fn intern(&mut self, ty: Type) -> usize {
+        if let Some(k) = self.mapping.get(&TypeWithEq{ty}) {
+            return *k;
+        }
+        let k = self.types.len();
+        self.types.push(ty);
+        self.mapping.insert(TypeWithEq{ty}, k);
+        k
+    }
+
+    fn reify(&self, ty: usize) -> Type {
+        self.types[ty]
+    }
+}
+
+thread_local! {
+    static RawArrayTypes: RefCell<TypeMap> = RefCell::new(TypeMap::new());
+    static CookedArrayTypes: RefCell<TypeMap> = RefCell::new(TypeMap::new());
+}
 
 #[derive(Debug)]
 pub struct ArrayDef {
@@ -72,22 +96,7 @@ pub struct ArrayDef {
 
 impl ArrayDef {
     pub fn new_raw(ty:Type) -> usize {
-/*
-        IdTable.with(|tbl| {
-            if let Some(k) = tbl.borrow().get(name) {
-                return Id { name: *k };
-            }
-
-            IdNames.with(|names| {
-                let mut names = names.borrow_mut();
-                let k = names.len();
-                names.push(name.to_string());
-                tbl.borrow_mut().insert(name.to_string(), k);
-                Id { name: k }
-            })
-        })
-         */
-        0
+        RawArrayTypes.with(|tbl| tbl.borrow_mut().intern(ty))
     }
 }
 
@@ -194,7 +203,8 @@ impl fmt::Display for Id {
 // It's important for simplicity that Type is Copy, but that does require some
 // careful indirection via struct and array tables.
 //
-// Not PartialEq so that we can avoid accidentally comparing types with `==`.
+// Type is not PartialEq so that we can avoid accidentally comparing types with
+// `==`.  Use TypeWithEq when equality is actually required.
 
 #[derive(Clone, Copy, Debug, Hash)]
 pub enum Type {
@@ -223,6 +233,17 @@ pub enum Ref {
     Struct(Id),
     Array(usize)
 }
+
+#[derive(Clone, Copy, Debug, Hash)]
+struct TypeWithEq{ty:Type}
+
+impl PartialEq for TypeWithEq {
+    fn eq(&self, other: &TypeWithEq) -> bool {
+        is_same_type(Some(self.ty), Some(other.ty))
+    }
+}
+
+impl Eq for TypeWithEq { }
 
 pub fn fmt_type(t:Option<Type>) -> String
 {
