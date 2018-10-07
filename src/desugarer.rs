@@ -101,7 +101,7 @@ impl Desugarer
                 match ctx_ty {
                     None => { }
                     Some(t @ Type::NullRef) => {  *ty = t; }
-                    Some(t @ Type::CookedRef(_)) => { *ty = t; }
+                    Some(t @ Type::Cooked(_)) => { *ty = t; }
                     _ => {
                         println!("{:?}", ctx_ty);
                         unreachable!();
@@ -219,7 +219,7 @@ impl Desugarer
                 let rhs = *rhs;
 
                 match (new_lhs.ty, &rhs) {
-                    (Some(Type::CookedRef(_)), Type::CookedRef(_)) |
+                    (Some(Type::Cooked(_)), Type::Cooked(_)) |
                     (_, Type::AnyRef) => {
                         match op {
                             Typeop::Is => {
@@ -233,7 +233,7 @@ impl Desugarer
                             }
                         }
                     }
-                    (Some(Type::AnyRef), Type::CookedRef(_)) => {
+                    (Some(Type::AnyRef), Type::Cooked(_)) => {
                         let narrow = box_downcast(expr.ty, rhs, new_lhs);
                         match op {
                             Typeop::Is => {

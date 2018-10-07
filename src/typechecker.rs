@@ -16,7 +16,7 @@
 //   results (0 or 1, for now)
 //
 // It computes types for all expr and block nodes and records those in the
-// nodes.  It transforms every RawRef type into a CookedRef type.
+// nodes.  It transforms every Raw type into a Cooked type.
 //
 // In the future, it may also insert explicit casts where they are implicit.
 
@@ -302,12 +302,17 @@ impl Check
                 if !is_ref_or_anyref_type(Some(*rhs)) {
                     panic!("Right hand side of type operator must have reference type");
                 }
-                // If both are struct types then they must be the same struct type.
+                // If both are struct or array types then they must be the same type.
                 let rhs = *rhs;
                 match (lhs.ty, &rhs) {
-                    (Some(Type::CookedRef(lhs_struct)), Type::CookedRef(rhs_struct)) => {
+                    (Some(Type::Cooked(Ref::Struct(lhs_struct))), Type::Cooked(Ref::Struct(rhs_struct))) => {
                         if lhs_struct != *rhs_struct {
-                            panic!("Incompatible types in type operator");
+                            panic!("Incompatible struct types in type operator");
+                        }
+                    }
+                    (Some(Type::Cooked(Ref::Array(lhs_array))), Type::Cooked(Ref::Array(rhs_array))) => {
+                        if lhs_array != *rhs_array {
+                            panic!("Incompatible struct types in type operator");
                         }
                     }
                     _ => { }
@@ -405,7 +410,7 @@ impl Check
                                 panic!("Initializer for undefined field: {}", field);
                             }
                         }
-                        expr.ty = Some(Type::CookedRef(*ty_name));
+                        expr.ty = Some(Type::Cooked(Ref::Struct(*ty_name)));
                     }
                     _ => {
                         panic!("Type name in `new` must name a struct type");
@@ -456,7 +461,7 @@ impl Check
 
     fn check_struct_ref(&mut self, base:&Box<Expr>, field:Id) -> Type {
         match base.ty {
-            Some(Type::CookedRef(s_name)) => {
+            Some(Type::Cooked(Ref::Struct(s_name))) => {
                 let (_,fields) = &*self.env.get_struct_def(s_name);
                 let the_field = fields.into_iter().find(|(name,_)| *name == field);
                 match the_field {
@@ -477,17 +482,20 @@ impl Check
     fn check_type(&mut self, ty:&mut Type) {
         let mut replacement_type = None;
         match ty {
-            Type::RawRef(name) => {
+            Type::Raw(Ref::Struct(name)) => {
                 match self.env.lookup(*name) {
                     Some(Binding::Struct(_)) => {
-                        replacement_type = Some(Type::CookedRef(*name));
+                        replacement_type = Some(Type::Cooked(Ref::Struct(*name)));
                     }
                     _ => {
                         panic!("Type reference does not name a type {}", name)
                     }
                 }
             },
-            Type::CookedRef(_) => {
+            Type::Raw(Ref::Array(_)) => {
+                panic!("NYI");
+            }
+            Type::Cooked(_) => {
                 unreachable!();
             }
             _ => { }

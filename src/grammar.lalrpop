@@ -72,8 +72,8 @@ Type: Type = {
     "f32" => Type::F32,
     "f64" => Type::F64,
     "anyref" => Type::AnyRef,
-    <name:Id> => Type::RawRef(name),
-    "[" <t:Type> "]" => Type::ArrayRef(ArrayDef::intern(t))
+    <name:Id> => Type::Raw(Ref::Struct(name)),
+    "[" <t:Type> "]" => Type::Raw(Ref::Array(ArrayDef::new_raw(t)))
 }
 
 Id: Id = {

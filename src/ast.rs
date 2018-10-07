@@ -68,11 +68,11 @@ ie, tiny trees, and we can hash-cons this if we want to - probably not important
 time.   when we typecheck, we get the tree from the raw table at each location where we
 check an ArrayRef, and we check the tree.  If the tree checks out we stored it in the cooked
 table and update the ref.  (So there should be an enum in ArrayRef, Raw and Cooked, or
-we should have ArrayRawRef and ArrayCookedRef, as for structs.)  The cooked table we
+we should have ArrayRaw and ArrayCooked, as for structs.)  The cooked table we
 want to hash-cons so that type comparison is easy.  Type names are global and we can
 ignore scoping issues.
 
-Really RawRef(Ref::{Struct,Array}(T)) and CookedRef(Ref::{Struct,Array}(T)).
+Really Raw(Ref::{Struct,Array}(T)) and Cooked(Ref::{Struct,Array}(T)).
 
 */
 
@@ -92,7 +92,7 @@ pub struct ArrayDef {
 }
 
 impl ArrayDef {
-    pub fn intern(ty:Type) -> usize {
+    pub fn new_raw(ty:Type) -> usize {
 /*
         IdTable.with(|tbl| {
             if let Some(k) = tbl.borrow().get(name) {
@@ -210,21 +210,26 @@ pub enum Type {
     I64,
     F32,
     F64,
+    // TODO: Could/should this be Raw/Cooked(Ref::Any) ?
     AnyRef,
-    // RawRef comes from the parser, Id could be anything; it is eliminated by
+    // Raw comes from the parser, Id could be anything; it is eliminated by
     // the type checker, and type comparison algorithms will abort on
     // encountering it.
-    RawRef(Id),
+    Raw(Ref),
     // NullRef comes from the parser and is attached to NullLit nodes;
     // it is eliminated by the desugarer.
+    // TODO: Could/should this be Raw/Cooked(Ref::Null) ?
     NullRef,
-    // CookedRef is produced by the type checker, Id is known to reference a
+    // Cooked is produced by the type checker, Id is known to reference a
     // global struct defn that is not shadowed by a local binding, and type
     // comparison need not consider environments.
-    CookedRef(Id),
-    // The payload is an index into a global table of ArrayDef values, these
-    // are made unique (and indices may be updated) by the type checker.
-    ArrayRef(usize)
+    Cooked(Ref)
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Ref {
+    Struct(Id),
+    Array(usize)
 }
 
 pub fn fmt_type(t:Option<Type>) -> String
@@ -238,10 +243,11 @@ pub fn fmt_type(t:Option<Type>) -> String
                 Type::F32 => "F32".to_string(),
                 Type::F64 => "F64".to_string(),
                 Type::AnyRef => "anyref".to_string(),
-                Type::RawRef(n) => format!("(rawref {})", n),
+                Type::Raw(Ref::Struct(n)) => format!("(rawref struct {})", n),
+                Type::Raw(Ref::Array(n)) => format!("(rawref array {})", n),
                 Type::NullRef => "nullref".to_string(),
-                Type::CookedRef(n) => format!("(ref {})", n),
-                Type::ArrayRef(n) => format!("(array {})", n),
+                Type::Cooked(Ref::Struct(n)) => format!("(ref {})", n),
+                Type::Cooked(Ref::Array(_)) => panic!("NYI")
             }
         }
     }
@@ -502,9 +508,10 @@ pub fn is_same_type(t1:Option<Type>, t2:Option<Type>) -> bool {
         (Some(Type::F64), Some(Type::F64)) => true,
         (Some(Type::AnyRef), Some(Type::AnyRef)) => true,
         (Some(Type::NullRef), Some(Type::NullRef)) => true,
-        (Some(Type::CookedRef(name1)), Some(Type::CookedRef(name2))) => name1 == name2,
-        (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
-        (Some(_), Some(Type::RawRef(_))) => unreachable!(),
+        (Some(Type::Cooked(Ref::Struct(name1))), Some(Type::Cooked(Ref::Struct(name2)))) => name1 == name2,
+        (Some(Type::Cooked(Ref::Array(_))), Some(Type::Cooked(Ref::Array(_)))) => panic!("NYI"),
+        (Some(Type::Raw(_)), Some(_)) => unreachable!(),
+        (Some(_), Some(Type::Raw(_))) => unreachable!(),
         (_, _) => false
     }
 }
@@ -522,11 +529,12 @@ pub fn is_assignable_type(t1:Option<Type>, t2:Option<Type>) -> bool {
         (Some(Type::F64), Some(Type::F64)) => true,
         (Some(Type::AnyRef), Some(Type::AnyRef)) => true,
         (Some(Type::AnyRef), Some(Type::NullRef)) => true,
-        (Some(Type::AnyRef), Some(Type::CookedRef(_))) => true,
-        (Some(Type::CookedRef(name1)), Some(Type::CookedRef(name2))) => name1 == name2,
-        (Some(Type::CookedRef(_)), Some(Type::NullRef)) => true,
-        (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
-        (Some(_), Some(Type::RawRef(_))) => unreachable!(),
+        (Some(Type::AnyRef), Some(Type::Cooked(_))) => true,
+        (Some(Type::Cooked(Ref::Struct(name1))), Some(Type::Cooked(Ref::Struct(name2)))) => name1 == name2,
+        (Some(Type::Cooked(Ref::Array(_))), Some(Type::Cooked(Ref::Array(_)))) => panic!("NYI"),
+        (Some(Type::Cooked(_)), Some(Type::NullRef)) => true,
+        (Some(Type::Raw(_)), Some(_)) => unreachable!(),
+        (Some(_), Some(Type::Raw(_))) => unreachable!(),
         (_, _) => false
     }
 }
@@ -545,18 +553,19 @@ pub fn is_compatible_type(t1:Option<Type>, t2:Option<Type>) -> bool {
 
         (Some(Type::AnyRef), Some(Type::AnyRef)) => true,
         (Some(Type::AnyRef), Some(Type::NullRef)) => true,
-        (Some(Type::AnyRef), Some(Type::CookedRef(_))) => true,
+        (Some(Type::AnyRef), Some(Type::Cooked(_))) => true,
 
         (Some(Type::NullRef), Some(Type::AnyRef)) => true,
         (Some(Type::NullRef), Some(Type::NullRef)) => true,
-        (Some(Type::NullRef), Some(Type::CookedRef(_))) => true,
+        (Some(Type::NullRef), Some(Type::Cooked(_))) => true,
 
-        (Some(Type::CookedRef(_)), Some(Type::AnyRef)) => true,
-        (Some(Type::CookedRef(_)), Some(Type::NullRef)) => true,
-        (Some(Type::CookedRef(name1)), Some(Type::CookedRef(name2))) => name1 == name2,
+        (Some(Type::Cooked(_)), Some(Type::AnyRef)) => true,
+        (Some(Type::Cooked(_)), Some(Type::NullRef)) => true,
+        (Some(Type::Cooked(Ref::Struct(name1))), Some(Type::Cooked(Ref::Struct(name2)))) => name1 == name2,
+        (Some(Type::Cooked(Ref::Array(_))), Some(Type::Cooked(Ref::Array(_)))) => panic!("NYI"),
 
-        (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
-        (Some(_), Some(Type::RawRef(_))) => unreachable!(),
+        (Some(Type::Raw(_)), Some(_)) => unreachable!(),
+        (Some(_), Some(Type::Raw(_))) => unreachable!(),
         (_, _) => false
     }
 }
@@ -571,18 +580,18 @@ pub fn merge_compatible_types(t1:Option<Type>, t2:Option<Type>) -> Option<Type> 
 
         (Some(Type::AnyRef), Some(Type::AnyRef)) => t1,
         (Some(Type::AnyRef), Some(Type::NullRef)) => t1,
-        (Some(Type::AnyRef), Some(Type::CookedRef(_))) => t1,
+        (Some(Type::AnyRef), Some(Type::Cooked(_))) => t1,
 
         (Some(Type::NullRef), Some(Type::AnyRef)) => t2,
         (Some(Type::NullRef), Some(Type::NullRef)) => t1,
-        (Some(Type::NullRef), Some(Type::CookedRef(_))) => t2,
+        (Some(Type::NullRef), Some(Type::Cooked(_))) => t2,
 
-        (Some(Type::CookedRef(_)), Some(Type::AnyRef)) => t2,
-        (Some(Type::CookedRef(_)), Some(Type::NullRef)) => t1,
-        (Some(Type::CookedRef(_)), Some(Type::CookedRef(_))) => t1,
+        (Some(Type::Cooked(_)), Some(Type::AnyRef)) => t2,
+        (Some(Type::Cooked(_)), Some(Type::NullRef)) => t1,
+        (Some(Type::Cooked(_)), Some(Type::Cooked(_))) => t1,
 
-        (Some(Type::RawRef(_)), Some(_)) => unreachable!(),
-        (Some(_), Some(Type::RawRef(_))) => unreachable!(),
+        (Some(Type::Raw(_)), Some(_)) => unreachable!(),
+        (Some(_), Some(Type::Raw(_))) => unreachable!(),
         (_, _) => unreachable!()
     }
 }
@@ -594,9 +603,8 @@ pub fn is_int_type(t1:Option<Type>) -> bool {
         Some(Type::F32) | Some(Type::F64) => false,
         Some(Type::AnyRef) => false,
         Some(Type::NullRef) => false,
-        Some(Type::CookedRef(_)) => false,
-        Some(Type::ArrayRef(_)) => false,
-        Some(Type::RawRef(_)) => unreachable!()
+        Some(Type::Cooked(_)) => false,
+        Some(Type::Raw(_)) => unreachable!()
     }
 }
 
@@ -608,9 +616,8 @@ pub fn is_i32_type(t1:Option<Type>) -> bool {
         Some(Type::F32) | Some(Type::F64) => false,
         Some(Type::AnyRef) => false,
         Some(Type::NullRef) => false,
-        Some(Type::CookedRef(_)) => false,
-        Some(Type::ArrayRef(_)) => false,
-        Some(Type::RawRef(_)) => unreachable!()
+        Some(Type::Cooked(_)) => false,
+        Some(Type::Raw(_)) => unreachable!()
     }
 }
 
@@ -621,9 +628,8 @@ pub fn is_float_type(t1:Option<Type>) -> bool {
         Some(Type::F32) | Some(Type::F64) => true,
         Some(Type::AnyRef) => false,
         Some(Type::NullRef) => false,
-        Some(Type::CookedRef(_)) => false,
-        Some(Type::ArrayRef(_)) => false,
-        Some(Type::RawRef(_)) => unreachable!()
+        Some(Type::Cooked(_)) => false,
+        Some(Type::Raw(_)) => unreachable!()
     }
 }
 
@@ -642,9 +648,8 @@ pub fn is_ref_or_anyref_type(t1:Option<Type>) -> bool {
         Some(Type::F32) | Some(Type::F64) => false,
         Some(Type::AnyRef) => true,
         Some(Type::NullRef) => true,
-        Some(Type::CookedRef(_)) => true,
-        Some(Type::ArrayRef(_)) => true,
-        Some(Type::RawRef(_)) => unreachable!()
+        Some(Type::Cooked(_)) => true,
+        Some(Type::Raw(_)) => unreachable!()
     }
 }
 
@@ -655,8 +660,7 @@ pub fn is_ref_type(t1:Option<Type>) -> bool {
         Some(Type::F32) | Some(Type::F64) => false,
         Some(Type::AnyRef) => false,
         Some(Type::NullRef) => false,
-        Some(Type::CookedRef(_)) => true,
-        Some(Type::ArrayRef(_)) => true,
-        Some(Type::RawRef(_)) => unreachable!()
+        Some(Type::Cooked(_)) => true,
+        Some(Type::Raw(_)) => unreachable!()
     }
 }

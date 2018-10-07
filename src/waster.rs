@@ -166,7 +166,7 @@ impl<'a> Waster<'a>
                 self.emit(")");
             }
             Uxpr::ExactFallibleUnboxAnyRef{to, value} => {
-                if let Type::CookedRef(ty_name) = to {
+                if let Type::Cooked(Ref::Struct(ty_name)) = to {
                     self.emit(&format!("(struct.narrow anyref (ref ${}) ", &ty_name));
                     self.wast_expr(&value);
                     self.emit(")");
@@ -218,7 +218,7 @@ impl<'a> Waster<'a>
                 self.emit(")");
             }
             Uxpr::GetField{base, field} => {
-                if let Some(Type::CookedRef(ty_name)) = base.ty {
+                if let Some(Type::Cooked(Ref::Struct(ty_name))) = base.ty {
                     self.emit(&format!("(struct.get ${} ${}.{} ", &ty_name, &ty_name, field));
                     self.wast_expr(base);
                     self.emit(")");
@@ -227,7 +227,7 @@ impl<'a> Waster<'a>
                 }
             }
             Uxpr::SetField{base, field, value} => {
-                if let Some(Type::CookedRef(ty_name)) = base.ty {
+                if let Some(Type::Cooked(Ref::Struct(ty_name))) = base.ty {
                     self.emit(&format!("(struct.set ${} ${}.{} ", &ty_name, &ty_name, field));
                     self.wast_expr(base);
                     self.emit(" ");
@@ -273,10 +273,10 @@ fn render_type(ty:Option<Type>) -> String {
         Some(Type::F32) => "f32".to_string(),
         Some(Type::F64) => "f64".to_string(),
         Some(Type::AnyRef) => "anyref".to_string(),
-        Some(Type::CookedRef(id)) => format!("(ref ${})", id),
-        Some(Type::RawRef(_)) => unreachable!(),
+        Some(Type::Cooked(Ref::Struct(id))) => format!("(ref ${})", id),
+        Some(Type::Cooked(Ref::Array(_))) => panic!("NYI"),
+        Some(Type::Raw(_)) => unreachable!(),
         Some(Type::NullRef) => unreachable!(),
-        Some(Type::ArrayRef(_)) => unreachable!(),
         None => "".to_string()
     }
 }
@@ -288,10 +288,10 @@ fn render_op_type(ty:Option<Type>) -> &'static str {
         Some(Type::F32) => "f32",
         Some(Type::F64) => "f64",
         Some(Type::AnyRef) => "ref",
-        Some(Type::CookedRef(_)) => "ref",
-        Some(Type::RawRef(_)) => unreachable!(),
+        Some(Type::Cooked(Ref::Struct(_))) => "ref",
+        Some(Type::Cooked(Ref::Array(_))) => panic!("NYI"),
+        Some(Type::Raw(_)) => unreachable!(),
         Some(Type::NullRef) => unreachable!(),
-        Some(Type::ArrayRef(_)) => unreachable!(),
         None => unreachable!()
     }
 }
