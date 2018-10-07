@@ -56,32 +56,11 @@ pub struct StructDef {
 }
 
 /*
-
-the table of array defs is tricky.  it is constructed during parsing without any information
-about what's in scope, so [snort] is bad if snort is the name of a local variable or a function
-but ok if it's the name of a global structure.  yet we need something to store in a Type
-when we parse, so that we can type check against it later.  Essentially, an array type 
-is a mini-ast.
-
-so there are two tables: raw and cooked.  the raw table stores what we got from the parser,
-ie, tiny trees, and we can hash-cons this if we want to - probably not important at this
-time.   when we typecheck, we get the tree from the raw table at each location where we
-check an ArrayRef, and we check the tree.  If the tree checks out we stored it in the cooked
-table and update the ref.  (So there should be an enum in ArrayRef, Raw and Cooked, or
-we should have ArrayRaw and ArrayCooked, as for structs.)  The cooked table we
-want to hash-cons so that type comparison is easy.  Type names are global and we can
-ignore scoping issues.
-
-Really Raw(Ref::{Struct,Array}(T)) and Cooked(Ref::{Struct,Array}(T)).
-
-*/
-
-/*
 thread_local! {
-    // IdTable maps strings to IDs
-    static IdTable: RefCell<HashMap<String,usize>> = RefCell::new(HashMap::new());
+    // RawArrayTable maps array types to usizes
+    static RawArrayTable: RefCell<HashMap<Type,usize>> = RefCell::new(HashMap::new());
 
-    // IdNames maps IDs to strings
+    // RawArrayNames maps usizes to array types
     static IdNames: RefCell<Vec<String>> = RefCell::new(vec![]);
 }
  */
@@ -141,47 +120,60 @@ pub struct LetDefn {
 // As a side effect, environments can map Ids directly, not having to go via
 // strings, and Id comparisons are generally cheaper.
 
-thread_local! {
-    // IdTable maps strings to IDs
-    static IdTable: RefCell<HashMap<String,usize>> = RefCell::new(HashMap::new());
-
-    // IdNames maps IDs to strings
-    static IdNames: RefCell<Vec<String>> = RefCell::new(vec![]);
-
-    // GensymCounter is used to generate unique names
-    static GensymCounter: RefCell<usize> = RefCell::new(1000);
+struct IdMap {
+    interned:       HashMap<String, usize>,
+    names:          Vec<String>,
+    gensym_counter: usize
 }
 
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+impl IdMap
+{
+    fn new() -> IdMap {
+        IdMap {
+            interned:       HashMap::new(),
+            names:          vec![],
+            gensym_counter: 0
+        }
+    }
+        
+    fn intern(&mut self, name: &str) -> Id {
+        if let Some(k) = self.interned.get(name) {
+            return Id { name: *k }
+        }
+        let k = self.names.len();
+        self.names.push(name.to_string());
+        self.interned.insert(name.to_string(), k);
+        Id { name: k }
+    }
+
+    fn name(&self, id: Id) -> String {
+        self.names[id.name].clone()
+    }
+
+    fn gensym(&mut self, tag: &str) -> Id {
+        let k = self.gensym_counter;
+        self.gensym_counter += 1;
+        Id::intern(&format!("_{}_{}", tag, k))
+    }
+}
+
+thread_local! {
+    static IdTable: RefCell<IdMap> = RefCell::new(IdMap::new())
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Id
 {
-    name: usize                 // Reference into a string table
+    name: usize                 // Reference into IdTable
 }
 
 impl Id {
     pub fn intern(name:&str) -> Id {
-        IdTable.with(|tbl| {
-            if let Some(k) = tbl.borrow().get(name) {
-                return Id { name: *k };
-            }
-
-            IdNames.with(|names| {
-                let mut names = names.borrow_mut();
-                let k = names.len();
-                names.push(name.to_string());
-                tbl.borrow_mut().insert(name.to_string(), k);
-                Id { name: k }
-            })
-        })
+        IdTable.with(|tbl| tbl.borrow_mut().intern(name))
     }
 
     pub fn gensym(tag:&str) -> Id {
-        GensymCounter.with(|counter| {
-            let mut counter = counter.borrow_mut();
-            let k = *counter;
-            *counter += 1;
-            Id::intern(&format!("_{}_{}", tag, k))
-        })
+        IdTable.with(|tbl| tbl.borrow_mut().gensym(tag))
     }
 
     pub fn is(&self, x:&str) -> bool {
@@ -189,7 +181,7 @@ impl Id {
     }
 
     pub fn name(&self) -> String {
-        IdNames.with(|names| { names.borrow()[self.name].clone() })
+        IdTable.with(|tbl| tbl.borrow().name(*self))
     }
 }
 
@@ -204,7 +196,7 @@ impl fmt::Display for Id {
 //
 // Not PartialEq so that we can avoid accidentally comparing types with `==`.
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Copy, Debug, Hash)]
 pub enum Type {
     I32,
     I64,
@@ -226,7 +218,7 @@ pub enum Type {
     Cooked(Ref)
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Copy, Debug, Hash)]
 pub enum Ref {
     Struct(Id),
     Array(usize)
