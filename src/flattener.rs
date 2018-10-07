@@ -14,10 +14,11 @@
 //  - void expressions have been removed, replaced by empty Block expressions
 
 use ast::*;
+use context::Context;
 use environment::*;
 use std::mem::swap;
 
-pub fn flatten(m:&mut Module) {
+pub fn flatten(_ctx:&mut Context, m:&mut Module) {
     let mut f = Flatten::new();
     f.flatten_module(m);
 }

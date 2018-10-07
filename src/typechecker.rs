@@ -21,24 +21,27 @@
 // In the future, it may also insert explicit casts where they are implicit.
 
 use ast::*;
+use context::Context;
 use environment::*;
 use std::collections::HashSet;
 
-pub fn check(p:&mut Module) {
-    let mut chk = Check::new();
+pub fn check(ctx:&mut Context, p:&mut Module) {
+    let mut chk = Check::new(ctx);
     chk.check_module(p);
 }
 
-struct Check
+struct Check<'a>
 {
-    env: Env<Type>
+    env: Env<Type>,
+    ctx: &'a mut Context
 }
 
-impl Check
+impl<'a> Check<'a>
 {
-    fn new() -> Check {
+    fn new(ctx:&'a mut Context) -> Check<'a> {
         Check {
-            env: Env::new()
+            env: Env::new(),
+            ctx: ctx
         }
     }
 
@@ -381,8 +384,16 @@ impl Check
             }
             Uxpr::Deref{base, field} => {
                 self.check_expr(base);
-                let ty = self.check_struct_ref(base, *field);
-                expr.ty = Some(ty);
+                let mut test_struct = true;
+                if let Some(Type::Cooked(Ref::Array(_))) = base.ty {
+                    if *field == Id::intern("length") {
+                        test_struct = false;
+                        expr.ty = Some(Type::I32);
+                    }
+                }
+                if test_struct {
+                    expr.ty = Some(self.check_struct_ref(base, *field));
+                }
             }
             Uxpr::Aref{base, index} => {
                 self.check_expr(base);
@@ -420,8 +431,13 @@ impl Check
                     }
                 }
             }
-            Uxpr::NewArray{..} => {
-                panic!("NYI");
+            Uxpr::NewArray{ty, length} => {
+                self.check_type(ty);
+                self.check_expr(length);
+                if !is_i32_type(length.ty) {
+                    panic!("Array length expression must be i32");
+                }
+                expr.ty = Some(Type::Cooked(Ref::Array(self.ctx.intern_array_type(*ty))));
             }
             Uxpr::Assign{lhs, rhs} => {
                 self.check_expr(rhs);
@@ -448,8 +464,14 @@ impl Check
                         }
                         *ty = Some(base_ty);
                     }
-                    LValue::Element{..} => {
-                        panic!("NYI");
+                    LValue::Element{ty, base, index} => {
+                        self.check_expr(base);
+                        self.check_expr(index);
+                        let elt_ty = self.check_array_ref(base, index);
+                        if !is_assignable_type(Some(elt_ty), rhs.ty) {
+                            panic!("Type of value being stored does not match array element");
+                        }
+                        *ty = Some(elt_ty);
                     }
                 }
             }
@@ -487,7 +509,7 @@ impl Check
             panic!("Index expression must be i32");
         }
         match base.ty {
-            Some(Type::Cooked(Ref::Array(base_ty))) => ArrayDef::find_cooked(base_ty),
+            Some(Type::Cooked(Ref::Array(base_ty))) => self.ctx.reify_base_type(base_ty),
             _ => panic!("Array dereference requires array base type")
         }
     }
@@ -508,7 +530,7 @@ impl Check
             Type::Raw(Ref::Array(id)) => {
                 let mut base_type = ArrayDef::find_raw(*id);
                 self.check_type(&mut base_type);
-                let cooked_type = ArrayDef::new_cooked(base_type);
+                let cooked_type = self.ctx.intern_array_type(base_type);
                 replacement_type = Some(Type::Cooked(Ref::Array(cooked_type)));
             }
             Type::Cooked(_) => {

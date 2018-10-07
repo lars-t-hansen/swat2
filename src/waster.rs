@@ -7,10 +7,11 @@
 // module.
 
 use ast::*;
+use context::Context;
 use std::fs::File;
 use std::io::Write;
 
-pub fn wast(m:&Module, out:&mut File) {
+pub fn wast(_ctx:&mut Context, m:&Module, out:&mut File) {
     let mut w = Waster { out };
     w.wast_module(m);
 }

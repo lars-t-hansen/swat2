@@ -24,12 +24,13 @@
 // introduce new names, so anything that needs temps gets put into desugaring.
 
 use ast::*;
+use context::Context;
 use environment::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::mem::swap;
 
-pub fn desugar(m:&mut Module) {
+pub fn desugar(_ctx:&mut Context, m:&mut Module) {
     let mut de = Desugarer::new();
     de.desugar_module(m);
 }

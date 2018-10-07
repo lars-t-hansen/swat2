@@ -5,6 +5,7 @@
 lalrpop_mod!(pub grammar);
 
 mod ast;
+mod context;
 mod desugarer;
 mod environment;
 mod flattener;
@@ -53,10 +54,11 @@ fn compile_file(infilename:&str)
     for item in &mut prog.items {
         match item {
             ast::TopItem::Mod(m) => {
-                typechecker::check(m);
-                desugarer::desugar(m);
-                flattener::flatten(m);
-                waster::wast(m, &mut wastfile);
+                let mut ctx = context::Context::new();
+                typechecker::check(&mut ctx, m);
+                desugarer::desugar(&mut ctx, m);
+                flattener::flatten(&mut ctx, m);
+                waster::wast(&mut ctx, m, &mut wastfile);
             }
             ast::TopItem::Js(s) => {
                 jsfile.write(s.as_bytes())

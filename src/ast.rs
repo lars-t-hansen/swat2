@@ -55,21 +55,21 @@ pub struct StructDef {
     pub fields: Vec<(Id,Type)>
 }
 
-struct TypeMap {
+pub struct TypeMap {
     mapping: HashMap<TypeWithEq, usize>,
     types:   Vec<Type>
 }
 
 impl TypeMap
 {
-    fn new() -> TypeMap {
+    pub fn new() -> TypeMap {
         TypeMap {
             mapping: HashMap::new(),
             types:   vec![]
         }
     }
         
-    fn intern(&mut self, ty: Type) -> usize {
+    pub fn intern(&mut self, ty: Type) -> usize {
         if let Some(k) = self.mapping.get(&TypeWithEq{ty}) {
             return *k;
         }
@@ -79,45 +79,23 @@ impl TypeMap
         k
     }
 
-    fn reify(&self, ty: usize) -> Type {
-        self.types[ty]
+    pub fn reify(&self, idx: usize) -> Type {
+        self.types[idx]
     }
 }
 
 // Raw array types are just small trees that we store in a side table to keep
 // Type as `Copy`.
 //
-// Cooked array types are module-specific, referring to other types defined in
-// the module.  Same as struct types, which are stored in the environment but
-// could also have been stored in a per-module table.
-
-// It's not obvious that having two global tables here is meaningful at all.
-//
-// As there may be multiple modules in a file that are parsed together but then
-// processed individually we can't purge the raw table after typechecking to
-// catch wild references into it.
-//
-// The hash-consing together with the type checking ensures that all types we
-// actually do reference after type checking are OK; any types that looked
-// like valid types but aren't will be in the table but won't be referenced.
-//
-// However, the cooked types will be OK so we can traverse this table and
-// only see the types we must process ... but only for the current module.
-//
-// So the cooked table can be purged before each typechecking pass and
-// used for that purpose, but do we want to?
-//
-// Should the cooked table then follow the module instead, perhaps?  It becomes
-// part of the (ta dah) module compilation context.
+// The global table of array types is a temporary concession to the parser.
 
 thread_local! {
     static RawArrayTypes: RefCell<TypeMap> = RefCell::new(TypeMap::new());
-    static CookedArrayTypes: RefCell<TypeMap> = RefCell::new(TypeMap::new());
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct ArrayDef {
-    idx: usize
+    pub idx: usize
 }
 
 impl ArrayDef {
@@ -127,14 +105,6 @@ impl ArrayDef {
 
     pub fn find_raw(ad: ArrayDef) -> Type {
         RawArrayTypes.with(|tbl| tbl.borrow().reify(ad.idx))
-    }
-
-    pub fn new_cooked(ty:Type) -> ArrayDef {
-        ArrayDef{ idx: CookedArrayTypes.with(|tbl| tbl.borrow_mut().intern(ty)) }
-    }
-
-    pub fn find_cooked(ad: ArrayDef) -> Type {
-        CookedArrayTypes.with(|tbl| tbl.borrow().reify(ad.idx))
     }
 }
 
@@ -206,9 +176,11 @@ impl IdMap
     fn gensym(&mut self, tag: &str) -> Id {
         let k = self.gensym_counter;
         self.gensym_counter += 1;
-        Id::intern(&format!("_{}_{}", tag, k))
+        self.intern(&format!("_{}_{}", tag, k))
     }
 }
+
+// The global table of interned symbols is a temporary concession to the parser.
 
 thread_local! {
     static IdTable: RefCell<IdMap> = RefCell::new(IdMap::new())
