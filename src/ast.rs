@@ -84,19 +84,63 @@ impl TypeMap
     }
 }
 
+// Raw array types are just small trees that we store in a side table to keep
+// Type as `Copy`.
+//
+// Cooked array types are module-specific, referring to other types defined in
+// the module.  Same as struct types, which are stored in the environment but
+// could also have been stored in a per-module table.
+
+// It's not obvious that having two global tables here is meaningful at all.
+//
+// As there may be multiple modules in a file that are parsed together but then
+// processed individually we can't purge the raw table after typechecking to
+// catch wild references into it.
+//
+// The hash-consing together with the type checking ensures that all types we
+// actually do reference after type checking are OK; any types that looked
+// like valid types but aren't will be in the table but won't be referenced.
+//
+// However, the cooked types will be OK so we can traverse this table and
+// only see the types we must process ... but only for the current module.
+//
+// So the cooked table can be purged before each typechecking pass and
+// used for that purpose, but do we want to?
+//
+// Should the cooked table then follow the module instead, perhaps?  It becomes
+// part of the (ta dah) module compilation context.
+
 thread_local! {
     static RawArrayTypes: RefCell<TypeMap> = RefCell::new(TypeMap::new());
     static CookedArrayTypes: RefCell<TypeMap> = RefCell::new(TypeMap::new());
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct ArrayDef {
-    pub ty: Type
+    idx: usize
 }
 
 impl ArrayDef {
-    pub fn new_raw(ty:Type) -> usize {
-        RawArrayTypes.with(|tbl| tbl.borrow_mut().intern(ty))
+    pub fn new_raw(ty: Type) -> ArrayDef {
+        ArrayDef{ idx: RawArrayTypes.with(|tbl| tbl.borrow_mut().intern(ty)) }
+    }
+
+    pub fn find_raw(ad: ArrayDef) -> Type {
+        RawArrayTypes.with(|tbl| tbl.borrow().reify(ad.idx))
+    }
+
+    pub fn new_cooked(ty:Type) -> ArrayDef {
+        ArrayDef{ idx: CookedArrayTypes.with(|tbl| tbl.borrow_mut().intern(ty)) }
+    }
+
+    pub fn find_cooked(ad: ArrayDef) -> Type {
+        CookedArrayTypes.with(|tbl| tbl.borrow().reify(ad.idx))
+    }
+}
+
+impl fmt::Display for ArrayDef {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[{}]", self.idx) // FIXME, we can format the base type but only if we know raw vs cooked
     }
 }
 
@@ -231,7 +275,7 @@ pub enum Type {
 #[derive(Clone, Copy, Debug, Hash)]
 pub enum Ref {
     Struct(Id),
-    Array(usize)
+    Array(ArrayDef)
 }
 
 #[derive(Clone, Copy, Debug, Hash)]

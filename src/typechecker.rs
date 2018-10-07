@@ -384,8 +384,11 @@ impl Check
                 let ty = self.check_struct_ref(base, *field);
                 expr.ty = Some(ty);
             }
-            Uxpr::Aref{..} => {
-                panic!("NYI");
+            Uxpr::Aref{base, index} => {
+                self.check_expr(base);
+                self.check_expr(index);
+                let ty = self.check_array_ref(base, index);
+                expr.ty = Some(ty);
             }
             Uxpr::New{ty_name, values} => {
                 values.into_iter().for_each(|(_,e)| self.check_expr(e));
@@ -479,6 +482,16 @@ impl Check
         }
     }
 
+    fn check_array_ref(&mut self, base:&Box<Expr>, index:&Box<Expr>) -> Type {
+        if !is_i32_type(index.ty) {
+            panic!("Index expression must be i32");
+        }
+        match base.ty {
+            Some(Type::Cooked(Ref::Array(base_ty))) => ArrayDef::find_cooked(base_ty),
+            _ => panic!("Array dereference requires array base type")
+        }
+    }
+
     fn check_type(&mut self, ty:&mut Type) {
         let mut replacement_type = None;
         match ty {
@@ -492,8 +505,11 @@ impl Check
                     }
                 }
             },
-            Type::Raw(Ref::Array(_)) => {
-                panic!("NYI");
+            Type::Raw(Ref::Array(id)) => {
+                let mut base_type = ArrayDef::find_raw(*id);
+                self.check_type(&mut base_type);
+                let cooked_type = ArrayDef::new_cooked(base_type);
+                replacement_type = Some(Type::Cooked(Ref::Array(cooked_type)));
             }
             Type::Cooked(_) => {
                 unreachable!();
