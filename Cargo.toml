@@ -4,5 +4,6 @@ version = "0.1.0"
 authors = ["Lars T Hansen <lhansen@mozilla.com>"]
 
 [dependencies]
+tempfile = "3.0.4"
 
 [build-dependencies]

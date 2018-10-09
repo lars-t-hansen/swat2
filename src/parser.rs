@@ -1,8 +1,5 @@
 // -*- fill-column: 100 -*-
 
-// LALRPOP was fun while it lasted, but the semicolon rules make our grammar not LR(1), so do the
-// obvious recursive-descent thing.
-
 use ast::*;
 use lexer::{Lexer,Tok};
 
@@ -45,7 +42,7 @@ impl<'a> Parser<'a>
 
     fn parse_module(&mut self) -> Module {
         self.snarf(Tok::Module);
-        let name = self.snarf_id();
+        let name = self.parse_id();
         self.snarf(Tok::LBrace);
         let mut items = vec![];
         while let Some(mi) = self.parse_mod_item() {
@@ -81,7 +78,7 @@ impl<'a> Parser<'a>
         if is_var && is_const {
             self.error("Can't be both `var` and `const`");
         }
-        let name = self.snarf_id();
+        let name = self.parse_id();
         self.snarf(Tok::Colon);
         let ty = self.parse_type();
         self.snarf(Tok::Assign);
@@ -92,7 +89,7 @@ impl<'a> Parser<'a>
 
     fn parse_fn(&mut self, is_extern:bool, is_pub:bool) -> Box<FunctionDef> {
         self.snarf(Tok::Fn);
-        let name = self.snarf_id();
+        let name = self.parse_id();
         let formals = self.parse_formals(Tok::LParen, Tok::RParen);
         let retn = if self.eat(Tok::Arrow) { Some(self.parse_type()) } else { None };
         let body = if is_extern {
@@ -106,7 +103,7 @@ impl<'a> Parser<'a>
 
     fn parse_struct(&mut self) -> Box<StructDef> {
         self.snarf(Tok::Struct);
-        let name = self.snarf_id();
+        let name = self.parse_id();
         let fields = self.parse_formals(Tok::LBrace, Tok::RBrace);
         Box::new(StructDef{ name, fields })
     }
@@ -134,29 +131,27 @@ impl<'a> Parser<'a>
     }
 
     fn parse_formals(&mut self, open:Tok, close:Tok) -> Vec<(Id,Type)> {
-        let mut items = vec![];
-        self.snarf(open);
-        if !self.peek(close) {
-            loop {
-                let name = self.snarf_id();
-                self.snarf(Tok::Colon);
-                let ty = self.parse_type();
-                items.push((name,ty));
-                if !self.eat(Tok::Comma) {
-                    break;
-                }
-            }
-        }
-        self.snarf(close);
-        items
+        self.parse_comma_separated(open, close,
+                                   |p:&mut Parser| {
+                                       let name = p.parse_id();
+                                       p.snarf(Tok::Colon);
+                                       let ty = p.parse_type();
+                                       (name, ty)
+                                   })
     }
 
     fn parse_exprs(&mut self, open:Tok, close:Tok) -> Vec<Box<Expr>> {
+        self.parse_comma_separated(open, close, |p:&mut Parser| p.parse_expr())
+    }
+
+    fn parse_comma_separated<Itemer, T>(&mut self, open: Tok, close: Tok, itemer: Itemer) -> Vec<T>
+        where Itemer: Fn(&mut Parser) -> T
+    {
         let mut items = vec![];
         self.snarf(open);
         if !self.peek(close) {
             loop {
-                items.push(self.parse_expr());
+                items.push(itemer(self));
                 if !self.eat(Tok::Comma) {
                     break;
                 }
@@ -180,7 +175,7 @@ impl<'a> Parser<'a>
                 if require_semi || require_semi_if_not_last {
                     self.error("Semicolon required here");
                 }
-                let name = self.snarf_id();
+                let name = self.parse_id();
                 self.snarf(Tok::Colon);
                 let ty = self.parse_type();
                 self.snarf(Tok::Assign);
@@ -241,8 +236,9 @@ impl<'a> Parser<'a>
         }
     }
     
-    fn parse_leftassoc_binop<F, G>(&mut self, next: F, get_op: G) -> Box<Expr>
-        where F: Fn(&mut Parser) -> Box<Expr>, G: Fn(&mut Parser) -> Option<Binop>
+    fn parse_leftassoc_binop<Nexter, Oper>(&mut self, next: Nexter, get_op: Oper) -> Box<Expr>
+        where Nexter: Fn(&mut Parser) -> Box<Expr>,
+              Oper:   Fn(&mut Parser) -> Option<Binop>
     {
         let mut e = next(self);
         while let Some(op) = get_op(self) {
@@ -349,7 +345,7 @@ impl<'a> Parser<'a>
                 let body = self.parse_block();
                 Box::new(Expr{ ty: None, u: Uxpr::While{ test, body } })
             } else if self.eat(Tok::Loop) {
-                let break_label = self.snarf_id();
+                let break_label = self.parse_id();
                 let body = self.parse_block();
                 Box::new(Expr{ ty: None, u: Uxpr::Loop{ break_label, body } })
             } else if self.eat(Tok::New) {
@@ -363,21 +359,14 @@ impl<'a> Parser<'a>
                     let length = args.remove(0);
                     Box::new(Expr{ ty: None, u: Uxpr::NewArray{ ty, length } })
                 } else {
-                    let ty_name = self.snarf_id();
-                    self.snarf(Tok::LBrace);
-                    let mut values = vec![];
-                    if !self.peek(Tok::RBrace) {
-                        loop {
-                            let field = self.snarf_id();
-                            self.snarf(Tok::Colon);
-                            let value = self.parse_expr();
-                            values.push((field, value));
-                            if !self.eat(Tok::Comma) {
-                                break;
-                            }
-                        }
-                    }
-                    self.snarf(Tok::RBrace);
+                    let ty_name = self.parse_id();
+                    let mut values = self.parse_comma_separated(Tok::LBrace, Tok::RBrace,
+                                                                |p:&mut Parser| {
+                                                                    let field = p.parse_id();
+                                                                    p.snarf(Tok::Colon);
+                                                                    let value = p.parse_expr();
+                                                                    (field, value)
+                                                                });
                     Box::new(Expr{ ty: None, u: Uxpr::New{ ty_name, values } })
                 }
             } else if self.eat(Tok::LParen) {
@@ -419,7 +408,7 @@ impl<'a> Parser<'a>
         // Deref operators are left-associative
         loop {
             if self.eat(Tok::Dot) {
-                let field = self.snarf_id();
+                let field = self.parse_id();
                 e = Box::new(Expr{ ty: None, u: Uxpr::Deref{ base: e, field } })
             } else if self.eat(Tok::LBracket) {
                 let index = self.parse_expr();
@@ -431,6 +420,22 @@ impl<'a> Parser<'a>
         }
 
         e
+    }
+
+    fn parse_id(&mut self) -> Id {
+        if let Tok::Id(name) = self.get() {
+            name
+        } else {
+            self.error("Expected name")
+        }
+    }
+
+    // Token stream abstractions.
+
+    fn snarf(&mut self, t:Tok) {
+        if self.get() != t {
+            self.error("Wrong token");
+        }
     }
 
     fn peek(&mut self, t:Tok) -> bool {
@@ -456,20 +461,6 @@ impl<'a> Parser<'a>
             Some(name)
         } else {
             None
-        }
-    }
-
-    fn snarf(&mut self, t:Tok) {
-        if self.get() != t {
-            self.error("Wrong token");
-        }
-    }
-
-    fn snarf_id(&mut self) -> Id {
-        if let Tok::Id(name) = self.get() {
-            name
-        } else {
-            self.error("Expected name")
         }
     }
 

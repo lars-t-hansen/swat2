@@ -87,7 +87,6 @@ Testing with `cargo test`:
 
 Lexer / parser:
 
-  - ===> Better lexer - what we have does not work well for strings and %%JS
   - ===> Comments
   - use box_whatever abstractions
   - Propagate errors up the tree, do not panic
@@ -96,7 +95,6 @@ Lexer / parser:
   - Return stmt
   - true, false literals
   - Block expressions (for scoping)
-  - ===> One-armed "if" for void contexts
   - ===> "else if" thing, not currently allowed
 
 Env:

@@ -219,6 +219,13 @@ impl Desugarer
 
                 let rhs = *rhs;
 
+                // NYI: Array types
+                //
+                // NYI: In general, if we desugar array types here, must we not replace
+                // the occurrence of array types everywhere?  Variable types, parameter
+                // types, return types, struct field types, indeed array element types?
+                // The flattener should never see array types in this case.
+
                 match (new_lhs.ty, &rhs) {
                     (Some(Type::Cooked(_)), Type::Cooked(_)) |
                     (_, Type::AnyRef) => {

@@ -538,7 +538,7 @@ pub fn is_same_type(t1:Option<Type>, t2:Option<Type>) -> bool {
         (Some(Type::AnyRef), Some(Type::AnyRef)) => true,
         (Some(Type::NullRef), Some(Type::NullRef)) => true,
         (Some(Type::Cooked(Ref::Struct(name1))), Some(Type::Cooked(Ref::Struct(name2)))) => name1 == name2,
-        (Some(Type::Cooked(Ref::Array(_))), Some(Type::Cooked(Ref::Array(_)))) => panic!("NYI"),
+        (Some(Type::Cooked(Ref::Array(t1))), Some(Type::Cooked(Ref::Array(t2)))) => t1 == t2,
         (Some(Type::Raw(_)), Some(_)) => unreachable!(),
         (Some(_), Some(Type::Raw(_))) => unreachable!(),
         (_, _) => false
@@ -560,7 +560,7 @@ pub fn is_assignable_type(t1:Option<Type>, t2:Option<Type>) -> bool {
         (Some(Type::AnyRef), Some(Type::NullRef)) => true,
         (Some(Type::AnyRef), Some(Type::Cooked(_))) => true,
         (Some(Type::Cooked(Ref::Struct(name1))), Some(Type::Cooked(Ref::Struct(name2)))) => name1 == name2,
-        (Some(Type::Cooked(Ref::Array(_))), Some(Type::Cooked(Ref::Array(_)))) => panic!("NYI"),
+        (Some(Type::Cooked(Ref::Array(t1))), Some(Type::Cooked(Ref::Array(t2)))) => t1 == t2,
         (Some(Type::Cooked(_)), Some(Type::NullRef)) => true,
         (Some(Type::Raw(_)), Some(_)) => unreachable!(),
         (Some(_), Some(Type::Raw(_))) => unreachable!(),
