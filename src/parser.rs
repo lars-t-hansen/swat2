@@ -161,9 +161,6 @@ impl<'a> Parser<'a>
         items
     }
 
-    // FIXME: break
-    // FIXME: assignments should be valid only at this level
-
     fn parse_block(&mut self) -> Box<Block> {
         let mut items = vec![];
         let mut forbid_semi = true;
@@ -195,7 +192,12 @@ impl<'a> Parser<'a>
                 if require_semi || require_semi_if_not_last {
                     self.error("Semicolon required here");
                 }
-                let expr = self.parse_expr();
+                let expr = if self.eat(Tok::Break) {
+                    let label = self.parse_id();
+                    Box::new(Expr{ ty: None, u: Uxpr::Break{ label } })
+                } else {
+                    self.parse_assignment_expr()
+                };
                 forbid_semi = false;
                 require_semi = false;
                 require_semi_if_not_last = !ends_with_block(&expr);
@@ -210,17 +212,11 @@ impl<'a> Parser<'a>
         Box::new(Block{ ty: None, items })
     }
 
-    fn parse_expr(&mut self) -> Box<Expr> {
-        self.parse_assignment_expr()
-    }
-
-    // Assignment is nonassociative.  Arguably it should be block-level only.
-
     fn parse_assignment_expr(&mut self) -> Box<Expr> {
-        let mut e = self.parse_relational_expr();
+        let mut e = self.parse_expr();
         if self.eat(Tok::Assign) {
             let lhs = self.expr_to_lvalue(e);
-            let rhs = self.parse_relational_expr();
+            let rhs = self.parse_expr();
             e = Box::new(Expr{ ty: None, u: Uxpr::Assign{ lhs, rhs } })
         }
         e
@@ -236,6 +232,10 @@ impl<'a> Parser<'a>
         }
     }
     
+    fn parse_expr(&mut self) -> Box<Expr> {
+        self.parse_relational_expr()
+    }
+
     fn parse_leftassoc_binop<Nexter, Oper>(&mut self, next: Nexter, get_op: Oper) -> Box<Expr>
         where Nexter: Fn(&mut Parser) -> Box<Expr>,
               Oper:   Fn(&mut Parser) -> Option<Binop>
@@ -354,7 +354,7 @@ impl<'a> Parser<'a>
                     self.snarf(Tok::RBracket);
                     let mut args = self.parse_exprs(Tok::LParen, Tok::RParen);
                     if args.len() != 1 {
-                        self.error("Only one argument to array `new`");
+                        self.error("Exactly one argument to array `new`");
                     }
                     let length = args.remove(0);
                     Box::new(Expr{ ty: None, u: Uxpr::NewArray{ ty, length } })
@@ -473,6 +473,9 @@ impl<'a> Parser<'a>
     fn lookahead(&mut self) -> Tok {
         self.cached
     }
+
+    // Error reporting.  Ideally we'd propagate the error and signal it in an orderly way, not
+    // panic.
 
     fn error(&mut self, msg:&str) -> ! {
         panic!("Error on line {}: {}", self.lexer.line(), msg);
