@@ -2,12 +2,7 @@
 name = "swat2"
 version = "0.1.0"
 authors = ["Lars T Hansen <lhansen@mozilla.com>"]
-build = "build.rs" # LALRPOP
 
 [dependencies]
-lalrpop-util = "0.16.0"
-regex = "0.2.0"
-tempfile = "3.0.4"
 
 [build-dependencies]
-lalrpop = "0.16.0"

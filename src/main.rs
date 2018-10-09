@@ -1,14 +1,12 @@
 // -*- fill-column: 80 -*-
 
-#[macro_use] extern crate lalrpop_util;
-
-lalrpop_mod!(pub grammar);
-
 mod ast;
 mod context;
 mod desugarer;
 mod environment;
 mod flattener;
+mod lexer;
+mod parser;
 mod typechecker;
 mod waster;
 
@@ -39,10 +37,9 @@ fn compile_file(infilename:&str)
     let basename = infilename.split_at(infilename.rfind(".swat").unwrap()).0.to_owned();
 
     let source = read_text_file(infilename);
-    let mut prog = grammar::ProgramParser::new()
-        .parse(&source)
-        .unwrap();
-
+    let mut lexer = lexer::Lexer::new(source.as_bytes());
+    let mut prog = parser::parse(&mut lexer);
+    
     let wastfilename = basename.clone() + ".wast";
     let mut wastfile = File::create(&wastfilename)
         .expect(&format!("{}: could not create", &wastfilename));
