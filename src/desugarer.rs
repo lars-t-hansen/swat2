@@ -17,6 +17,8 @@
 // - `new` is rewritten with initializers in struct declaration order
 // - `null` is rewritten to carry the type that the null pointer needs to have
 //
+// - In progress: desugaring array operations and array types
+//
 // The desugarer can insert new blocks and variable bindings, it just can't leave behind new
 // instances of any of the forms it is trying to remove.
 //
@@ -30,26 +32,29 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::mem::swap;
 
-pub fn desugar(_ctx:&mut Context, m:&mut Module) {
-    let mut de = Desugarer::new();
+pub fn desugar(ctx:&mut Context, m:&mut Module) {
+    let mut de = Desugarer::new(ctx);
     de.desugar_module(m);
 }
 
-struct Desugarer {
+struct Desugarer<'a> {
     // The carried Type value is not used here, we use environments simply to discover whether
     // something is an intrinsic or not.
-    env:     Env<Type>
+    env: Env<Type>,
+    ctx: &'a mut Context
 }
 
-impl Desugarer
+impl<'a> Desugarer<'a>
 {
-    fn new() -> Desugarer {
+    fn new(ctx:&'a mut Context) -> Desugarer<'a> {
         Desugarer {
-            env: Env::new()
+            env: Env::new(),
+            ctx: ctx
         }
     }
 
     fn desugar_module(&mut self, m:&mut Module) {
+        self.synthesize_types(m);
         (&m.items).into_iter().for_each(|item| self.env.define_toplevel(item));
         for item in &mut m.items {
             match item {
@@ -71,6 +76,23 @@ impl Desugarer
             self.desugar_block(&mut f.body, f.retn);
             self.env.locals.pop_rib();
         }
+    }
+
+    fn synthesize_types(&mut self, m:&mut Module) {
+        // NYI: Insert support code for arrays into m.items, one for each array type.
+        // The support code will be desugared subsequently and only needs to be well-typed.
+        // The array types can be found by iterating on the array_types element of
+        // the context.
+        //panic!("NYI");
+    }
+
+    fn desugar_type(&mut self, t:&mut Option<Type>) {
+        // NYI: if the type is an array type, must convert it
+        //
+        // we must replace the occurrence of array types everywhere.  Variable types, parameter
+        // types, return types, struct field types, indeed array element types, ...  The flattener
+        // should never see array types.
+        panic!("NYI");
     }
 
     fn desugar_block(&mut self, b:&mut Block, ctx_ty:Option<Type>) {
@@ -219,12 +241,10 @@ impl Desugarer
 
                 let rhs = *rhs;
 
-                // NYI: Array types
+                // panic!("NYI"): Array types
                 //
-                // NYI: In general, if we desugar array types here, must we not replace
-                // the occurrence of array types everywhere?  Variable types, parameter
-                // types, return types, struct field types, indeed array element types?
-                // The flattener should never see array types in this case.
+                // Will this not simply "just work" if types are properly translated?  The object
+                // will then be of the correct array type, as expected.
 
                 match (new_lhs.ty, &rhs) {
                     (Some(Type::Cooked(_)), Type::Cooked(_)) |
@@ -299,9 +319,15 @@ impl Desugarer
             }
             Uxpr::Id{..} => { }
             Uxpr::Deref{base, ..} => {
+                // panic!("NYI") - anything special to do for array.length?  We know it's valid,
+                // so if the array object has a "length" field this will just work.  That field
+                // can't be assigned to (because the type checker checks that), so there's no
+                // need to mangle the name or otherwise hide it or make it a method.
                 self.desugar_expr(base, expr.ty);
             }
             Uxpr::Aref{..} => {
+                // (aref base index) => (call _TAG_aref base index) where TAG depends on
+                // the specific array type.
                 panic!("NYI");
             }
             Uxpr::New{ty_name, values} => {
@@ -358,11 +384,15 @@ impl Desugarer
                         self.desugar_expr(base, base_ty);
                     }
                     LValue::Element{..} => {
+                        // (setf (aref base index) value) => (call _TAG_aset base index value) where TAG depends on
+                        // the specific array type.
                         panic!("NYI");
                     }
                 }
             }
             Uxpr::NewArray{..} => {
+                // (new-array type length) => (call _TAG_new_array length) where TAG depends on
+                // the specific array type.
                 panic!("NYI");
             }
             Uxpr::Block{..} | Uxpr::Sequence{..} | Uxpr::Drop{..} |

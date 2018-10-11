@@ -155,10 +155,16 @@ impl<'a> Lexer<'a> {
                 '&' => { return Tok::BitAnd; }
                 '+' => { return Tok::Add; }
                 '*' => { return Tok::Mul; }
-                '/' => { return match self.peekc2() {
-                    ('u',x) => { self.disallow_subsequent(x); self.pos += 1; Tok::UDiv }
-                    (_,_)   => { Tok::Div }
-                }}
+                '/' => {
+                    if self.peekc() == '/' {
+                        self.line_comment();
+                        continue;
+                    }
+                    return match self.peekc2() {
+                        ('u',x) => { self.disallow_subsequent(x); self.pos += 1; Tok::UDiv }
+                        (_,_)   => { Tok::Div }
+                    }
+                }
                 '%' => { return match self.peekc2() {
                     ('u',x) => { self.disallow_subsequent(x); self.pos += 1; Tok::UMod }
                     (_,_)   => { Tok::Mod }
@@ -168,6 +174,16 @@ impl<'a> Lexer<'a> {
                 'a'...'z' | 'A'...'Z' => { return self.ident_or_keyword(c); }
                 _ => { self.error(&format!("Unrecognized character `{}`", c)); }
             }
+        }
+    }
+
+    fn line_comment(&mut self) {
+        loop {
+            let c = self.peekc();
+            if c == '\n' || c == '\r' || c == '\0' {
+                return;
+            }
+            self.pos += 1;
         }
     }
 

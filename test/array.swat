@@ -1,0 +1,26 @@
+module Array
+{
+    pub fn dot(xs:anyref, ys:anyref) -> i32 {
+        do_dot(xs as [i32], ys as [i32])
+    }
+
+    fn do_dot(xs:[i32], ys:[i32]) -> i32 {
+        let sum: i32 = 0;
+        let i: i32 = 0;
+        while i < xs.length {
+            sum = sum + xs[i] * ys[i];
+            i = i + 1;
+        }
+        sum
+    }
+
+    pub fn iota(k:i32) -> anyref {
+        let xs: [i32] = new [i32](k);
+        let i: i32 = 0;
+        while i < k {
+            xs[i] = i;
+            i = i + 1;
+        }
+        xs
+    }
+}

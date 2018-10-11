@@ -6,6 +6,7 @@ module Wabbit
         right: Wabbit
     }
 
+    // Facade to avoid exposing Wabbit
     pub fn make_wabbit(n:i32) -> anyref {
         wabbit(n)
     }
@@ -25,6 +26,7 @@ module Wabbit
         }
     }
 
+    // Facade to avoid exposing Wabbit
     pub fn sum_wabbit(w:anyref) -> i32 {
         sum(w as Wabbit)
     }

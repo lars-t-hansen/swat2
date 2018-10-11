@@ -87,7 +87,7 @@ Testing with `cargo test`:
 
 Lexer / parser:
 
-  - ===> Comments
+  - Block comments
   - use box_whatever abstractions
   - Propagate errors up the tree, do not panic
   - Probably a "continue" thing
@@ -108,7 +108,7 @@ Type checker:
   - Return stmt
   - Continue stmt
   - Block expressions
-  - ===> implicit widening of literals
+  - ===> implicit widening of literals or indeed of numbers
 
 Desugarer:
 
