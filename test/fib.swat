@@ -6,3 +6,7 @@ module FibMod
         if n < x { n } else { fib(n-1) + fib(n-2) }
     }
 }
+
+<!<
+print('hi');
+>!>

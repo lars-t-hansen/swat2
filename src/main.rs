@@ -57,7 +57,7 @@ fn compile_file(infilename:&str)
                 flattener::flatten(&mut ctx, m);
                 waster::wast(&mut ctx, m, &mut wastfile);
             }
-            ast::TopItem::Js(s) => {
+            ast::TopItem::JS(s) => {
                 jsfile.write(s.as_bytes())
                     .expect(&format!("{}: failed to write", &jsfilename));
             }

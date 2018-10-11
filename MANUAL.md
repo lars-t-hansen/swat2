@@ -1,11 +1,12 @@
+// -*- fill-column: 80 -*-
+
 Roughly correct grammar.
 
-Note that the compiler currently handles only a single module per file
-and does not handle JS sections.  Working on it...
+Note that the compiler currently does not handle JS sections.  Working on it...
 
-A general, temporary, semantic restriction is that struct types cannot
-be exposed from the module: can't appear as types on pub/extern
-globals; can't appear in signatures of pub/extern functions.
+A general, temporary, semantic restriction is that struct types cannot be
+exposed from the module: can't appear as types on pub/extern globals; can't
+appear in signatures of pub/extern functions.
 
 See TODO for a list of arbitrary restrictions that we want to lift ASAP.
 
@@ -13,7 +14,16 @@ See TODO for a list of arbitrary restrictions that we want to lift ASAP.
 
 Program ::= (Module | JS)*
 
-Module ::= "module" "{" (Global | Function | Struct)* "}"
+  There can be at most one Module per file, it ends up in a .wast or .wasm file
+  with the same base name as the input .swat file.
+
+  The JS sections are concatenated in order into a .js file with the same base
+  name as the input .swat file.
+
+  The .js file is always generated even if there are no JS sections in the
+  Program.
+  
+Module ::= "module" Id "{" (Global | Function | Struct)* "}"
 
 Global ::= "pub"? ("var" | "const") IdAndType "=" ConstExpr ";"
          | "extern" ("var" | "const") IdAndType ";"
@@ -68,23 +78,22 @@ LValue ::= Id | Expr "." Id | Expr "[" Expr "]"
 
 Binop ::= + | - | * | ...
   
-  Binops follow Rust in their precedence.  Generally, binop has lower precedence than
-  unop, which has lower precedence than type-op, which has lower precedence than other
-  primary expressions.
+  Binops follow Rust in their precedence.  Generally, binop has lower precedence
+  than unop, which has lower precedence than type-op, which has lower precedence
+  than other primary expressions.
 
 Unop ::= ! | ~ | - 
 
   Many unops are additionally expressed as intrinsics.
 
-NumLit ::= Conventional number syntax with optional suffix i/I/l/L/f/F/d/D
-           to denote specific representation: i=i32, l=i64, f=f32, d=f64,
-           eg, 37L is an i64, 3.14e-3f is an f32.
-           If no suffix then integers default to i32, floats to f64.  If
-           the value doesn't fit in its designated type then there's a syntax 
-           error.
+NumLit ::= Conventional number syntax with optional suffix i/I/l/L/f/F/d/D to
+           denote specific representation: i=i32, l=i64, f=f32, d=f64, eg, 37L
+           is an i64, 3.14e-3f is an f32.  If no suffix then integers default to
+           i32, floats to f64.  If the value doesn't fit in its designated type
+           then there's a syntax error.
 
 NullLit ::= "null"
 
 Comment ::= "//" until the end of line
 
-JS ::= "%%JS<!<" any text ">!>"
+JS ::= "<!<" any text ">!>"

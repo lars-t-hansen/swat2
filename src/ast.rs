@@ -12,7 +12,7 @@ pub struct Program {
 #[derive(Debug)]
 pub enum TopItem {
     Mod(Module),
-    Js(String)
+    JS(String)
 }
 
 #[derive(Debug)]

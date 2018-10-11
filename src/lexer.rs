@@ -1,3 +1,5 @@
+// -*- fill-column: 100 -*-
+
 use ast;
 use std::str::FromStr;
 
@@ -75,15 +77,22 @@ pub enum Tok
     F64Lit(f64),
     I32Lit(i32),
     I64Lit(i64),
-    Id(ast::Id)
+    Id(ast::Id),
+    JS(StrRef)                   // We indirect to allow Token to be Copy
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct StrRef {
+    index: usize
 }
 
 pub struct Lexer<'a>
 {
-    input:  &'a [u8],
-    pos:    usize,
-    len:    usize,
-    lineno: usize
+    input:   &'a [u8],
+    pos:     usize,
+    len:     usize,
+    lineno:  usize,
+    strings: Vec<String>
 }
 
 impl<'a> Lexer<'a> {
@@ -94,7 +103,8 @@ impl<'a> Lexer<'a> {
             input,
             pos: 0,
             len: input.len(),
-            lineno: 1
+            lineno: 1,
+            strings: vec![]
         }
     }
 
@@ -102,6 +112,12 @@ impl<'a> Lexer<'a> {
         self.lineno
     }
     
+    pub fn remove_string(&self, s: StrRef) -> String {
+        // The semantics here are really "get and remove", so we should be able to do better.  In
+        // practice a single-element cache for strings may be sufficient for the parser.
+        self.strings[s.index].clone()
+    }
+
     pub fn lex(&mut self) -> Tok {
         loop {
             let c = self.getc();
@@ -136,6 +152,7 @@ impl<'a> Lexer<'a> {
                     ('=','u',x) => { self.disallow_subsequent(x); self.pos += 2; Tok::ULessOrEqual }
                     ('=',_,_)   => { self.pos += 1; Tok::LessOrEqual }
                     ('u',x,_)   => { self.disallow_subsequent(x); self.pos += 1; Tok::ULess }
+                    ('!','<',_) => { self.pos += 2; self.js_text() }
                     (_,_,_)     => { Tok::Less }
                 }}
                 '>' => { return match self.peekc3() {
@@ -184,6 +201,25 @@ impl<'a> Lexer<'a> {
                 return;
             }
             self.pos += 1;
+        }
+    }
+
+    fn js_text(&mut self) -> Tok {
+        let mut text = String::new();
+        loop {
+            let c = self.getc();
+            if c == '\0' {
+                self.error("EOF in JS section");
+            }
+            if c == '>' {
+                if let ('!','>') = self.peekc2() {
+                    self.pos += 2;
+                    let s = self.strings.len();
+                    self.strings.push(text);
+                    return Tok::JS(StrRef{index:s});
+                }
+            }
+            text.push(c);
         }
     }
 
@@ -246,8 +282,7 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        // TODO: technically: no letter following suffix, and if not a
-        // suffix then not a letter.
+        // TODO: technically: no letter following suffix, and if not a suffix then not a letter.
 
         match self.peekc() {
             'i' | 'I' => {
@@ -317,6 +352,7 @@ impl<'a> Lexer<'a> {
         if self.pos == self.len {
             '\0'
         } else {
+            // TODO: Technically, disallow non-ASCII
             let c = self.input[self.pos];
             self.pos += 1;
             c as char
@@ -339,6 +375,7 @@ impl<'a> Lexer<'a> {
         if self.pos + k >= self.len {
             '\0'
         } else {
+            // TODO: Technically, disallow non-ASCII
             self.input[self.pos + k] as char
         }
     }

@@ -35,6 +35,9 @@ impl<'a> Parser<'a>
     fn parse_top_item(&mut self) -> Option<TopItem> {
         if self.peek(Tok::Module) {
             Some(TopItem::Mod(self.parse_module()))
+        } else if let Tok::JS(text_ref) = self.lookahead() {
+            self.get();
+            Some(TopItem::JS(self.lexer.remove_string(text_ref)))
         } else {
             None
         }
