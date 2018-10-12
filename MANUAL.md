@@ -42,9 +42,15 @@ Type ::= "i32" | "i64" | "f32" | "f64" | "anyref" | Id | "[" Type "]"
 
 Block ::= "{" BlockItems "}"
 
-BlockItems ::= (BlockItem (";" BlockItem)*) ";"?
+BlockItems ::= (BlockItem (";"? BlockItem)*) ";"?
 
-   Some BlockItems must be terminated by semicolon even if last, notably "let".
+   A BlockItem that is not last must be separated from the next with a
+   semicolon.  However there are some arbitrary adjustments:
+
+   - Some BlockItems must be terminated by semicolon even if last, notably "let".
+
+   - Some BlockItems must not be terminated by semicolon even if not last,
+     notably those that carry blocks ("if", "while", "loop").
 
 BlockItem ::= "let" IdAndType "=" Expr
 	    | "break" Id
