@@ -84,6 +84,72 @@ impl<'a> Desugarer<'a>
         // The array types can be found by iterating on the array_types element of
         // the context.
         //panic!("NYI");
+
+        let val_name = Id::intern("value");
+        let next_name = Id::intern("next");
+        let length_name = Id::intern("length");
+
+        self.ctx.iter_base_types().for_each(|base_type: &Type| {
+        /*
+            let tag = ...;      // Mangled array type name
+            let array_name = Id::intern(tag + "_Array");
+            let node_name = Id::intern(tag + "_Node");
+
+            // struct _XXX_Array {
+            //   length: i32,
+            //   mem:    _XXX_Node
+            // }
+            m.items.push(
+                ModItem::Struct{
+                    Box::new(StructDef{
+                        name: array_name,
+                        fields: vec![(length_name, Type::I32),
+                                     (mem_name, Type::Cooked(Ref::Struct(node_name)))]
+                    })
+                });
+
+            // struct _XXX_Node {
+            //   value: T,
+            //   next: _XXX_Node
+            // }
+            m.items.push(
+                ModItem::Struct{
+                    Box::new(StructDef{
+                        name: node_name,
+                        fields: vec![(val_name, base_type),
+                                     (next_name, Type::Cooked(Ref::Struct(node_name)))]
+                    })
+                });
+
+            // fn _XXX_make(len: i32) -> _XXX_Array {
+            //    let mem = null;
+            //    let n = len;
+            //    while n > 0 {
+            //      mem = new _XXX_Node { value: <default for base_type>, next: mem };
+            //      n = n - 1;
+            //    }
+            //    new _XXX_Array { length: len, mem: mem }
+            // }
+
+            // fn _XXX_get(a: _XXX_Array, n: i32) -> base_type {
+            //   let mem = a.mem;
+            //   while n > 0 {
+            //     mem = mem.next;
+            //     n = n - 1;
+            //   }
+            //   mem.value
+            // }
+
+            // fn _XXX_set(a: _XXX_Array, n: i32, val: base_type) {
+            //   let mem = a.mem;
+            //   while n > 0 {
+            //     mem = mem.next;
+            //     n = n - 1;
+            //   }
+            //   mem.value = val;
+            // }
+         */
+        });
     }
 
     fn desugar_type(&mut self, t:&mut Option<Type>) {

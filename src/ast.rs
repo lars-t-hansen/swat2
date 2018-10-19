@@ -3,6 +3,7 @@
 use std::fmt;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::iter::{IntoIterator, Iterator};
 
 #[derive(Debug)]
 pub struct Program {
@@ -55,7 +56,8 @@ pub struct StructDef {
     pub fields: Vec<(Id,Type)>
 }
 
-pub struct TypeMap {
+pub struct TypeMap
+{
     mapping: HashMap<TypeWithEq, usize>,
     types:   Vec<Type>
 }
@@ -82,7 +84,13 @@ impl TypeMap
     pub fn reify(&self, idx: usize) -> Type {
         self.types[idx]
     }
+
+    pub fn iter(&self) -> TypeMapIter {
+        self.types.iter()
+    }
 }
+
+pub type TypeMapIter<'a> = ::std::slice::Iter<'a, Type>;
 
 // Raw array types are just small trees that we store in a side table to keep
 // Type as `Copy`.
