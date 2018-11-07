@@ -1,5 +1,4 @@
 use ast::{ArrayDef,Type,TypeMap,TypeMapIter};
-use std::iter::IntoIterator;
 
 pub struct Context {
     array_types: TypeMap

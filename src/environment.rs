@@ -271,17 +271,20 @@ impl<T> Env<T>
     }
 
     pub fn define_global(&mut self, g:&GlobalDef) {
+        println!("{}", &g.name.name());
         assert!(!self.toplevel.probe(g.name));
         self.toplevel.insert_global(g.name, g.mutable, g.ty);
     }
 
     pub fn define_function(&mut self, f:&FunctionDef) {
+        println!("{}", &f.name.name());
         assert!(!self.toplevel.probe(f.name));
         let param_types = (&f.formals).into_iter().map(|(_,ty)| *ty).collect();
         self.toplevel.insert_function(f.name, param_types, f.retn);
     }
 
     pub fn define_struct(&mut self, g:&StructDef) {
+        println!("{}", &g.name.name());
         assert!(!self.toplevel.probe(g.name));
         self.toplevel.insert_struct(g.name, g.fields.clone());
     }

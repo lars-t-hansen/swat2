@@ -8,6 +8,8 @@ A general, temporary, semantic restriction is that struct types cannot be
 exposed from the module: can't appear as types on pub/extern globals; can't
 appear in signatures of pub/extern functions.
 
+The restriction also applies to arrays.
+
 See TODO for a list of arbitrary restrictions that we want to lift ASAP.
 
 
@@ -27,6 +29,14 @@ Module ::= "module" Id "{" (Global | Function | Struct)* "}"
 
 Global ::= "pub"? ("var" | "const") IdAndType "=" ConstExpr ";"
          | "extern" ("var" | "const") IdAndType ";"
+
+  BUG: Arrays are not nullable, but new-array expressions are not const
+  expression, thus there can be no globals of array type at present, this is a
+  problem.  This is quasi-workaroundable by creating a global of a nullable
+  struct type that references the array.
+
+  We really should have the default value of an array type be an empty array
+  of that type, and we should set that up in the start function.
 
 Function ::= "pub"? "fn" Id "(" Formals ")" ("->" Type)? Block
            | "extern" "fn" Id" "(" Formals ")" ("->" Type)? ";"

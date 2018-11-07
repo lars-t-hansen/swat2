@@ -220,7 +220,7 @@ impl<'a> Parser<'a>
         if self.eat(Tok::Assign) {
             let lhs = self.expr_to_lvalue(e);
             let rhs = self.parse_expr();
-            e = Box::new(Expr{ ty: None, u: Uxpr::Assign{ lhs, rhs } })
+            e = box_assign(lhs, rhs);
         }
         e
     }
@@ -412,7 +412,7 @@ impl<'a> Parser<'a>
         loop {
             if self.eat(Tok::Dot) {
                 let field = self.parse_id();
-                e = Box::new(Expr{ ty: None, u: Uxpr::Deref{ base: e, field } })
+                e = box_deref(None, e, field);
             } else if self.eat(Tok::LBracket) {
                 let index = self.parse_expr();
                 self.snarf(Tok::RBracket);

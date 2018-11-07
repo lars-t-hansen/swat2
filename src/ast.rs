@@ -46,8 +46,8 @@ pub struct FunctionDef {
     pub name:     Id,
     pub formals:  Vec<(Id,Type)>,
     pub retn:     Option<Type>,
+    pub locals:   Option<Vec<(Id,Type)>>,
     pub body:     Box<Block>,
-    pub locals:   Option<Vec<(Id,Type)>>
 }
 
 #[derive(Debug)]
@@ -460,12 +460,28 @@ pub fn box_new(ty:Option<Type>, ty_name:Id, values: Vec<(Id, Box<Expr>)>) -> Box
     Box::new(Expr { ty, u: Uxpr::New{ ty_name, values } })
 }
 
+pub fn box_null(ty:Type) -> Box<Expr> {
+    Box::new(Expr{ ty: Some(ty), u:  Uxpr::NullLit{ty}})
+}
+    
+pub fn box_assign(lhs:LValue, rhs:Box<Expr>) -> Box<Expr> {
+    Box::new(Expr{ ty: None, u: Uxpr::Assign{ lhs, rhs } })
+}
+
+pub fn box_deref(ty:Option<Type>, base:Box<Expr>, field:Id) -> Box<Expr> {
+    Box::new(Expr{ ty, u: Uxpr::Deref{ base, field } })
+}
+
 pub fn box_block_expr(ty: Option<Type>, items: Vec<BlockItem>) -> Box<Expr> {
     Box::new(Expr { ty, u: Uxpr::Block{block: Block{ ty, items }}})
 }
 
 pub fn box_if(test:Box<Expr>, consequent:Box<Block>, alternate:Box<Block>) -> Box<Expr> {
     Box::new(Expr{ ty: None, u:  Uxpr::If{ test, consequent, alternate } })
+}
+
+pub fn box_while(test:Box<Expr>, body:Box<Block>) -> Box<Expr> {
+    Box::new(Expr{ ty: None, u: Uxpr::While{ test, body }})
 }
 
 pub fn box_empty_sequence() -> Box<Expr> {
